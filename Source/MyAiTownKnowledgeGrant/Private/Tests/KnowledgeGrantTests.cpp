@@ -1,4 +1,4 @@
-#if WITH_DEV_AUTOMATION_TESTS
+﻿#if WITH_DEV_AUTOMATION_TESTS
 
 #include "GameFramework/Actor.h"
 #include "KnowledgeGrantComponent.h"
@@ -32,11 +32,11 @@ void AddDefaultFact(FKnowledgeDocument& Document)
 UKnowledgePack* MakeTestPack()
 {
     UKnowledgePack* Pack = NewObject<UKnowledgePack>();
-    Pack->PackId = TEXT("quest.ancient_dragon.truth");
-    Pack->SourceQuestId = TEXT("quest.ancient_dragon");
+    Pack->PackId = TEXT("quest.archive_truth.truth");
+    Pack->SourceQuestId = TEXT("quest.archive_truth");
     FKnowledgeDocument Origin;
-    Origin.DocumentId = TEXT("dragon_origin");
-    Origin.Content = TEXT("The ancient dragon was created by the first court mage.");
+    Origin.DocumentId = TEXT("hidden_origin");
+    Origin.Content = TEXT("The hidden entity was created by an early mage.");
     Origin.ThreatLevel = 100;
     Origin.Novelty = 80;
     Origin.MoralViolation = 90;
@@ -111,7 +111,7 @@ UKnowledgeDialogueGuardPolicy* MakeGuardPolicy(EKnowledgeDialogueGuardMode Mode 
     Policy->InsufficientEvidenceText = FText::FromString(TEXT("现有证据不足，无法断言。"));
     Policy->InvalidViewText = FText::FromString(TEXT("当前知识视图无效。"));
     Policy->MalformedOutputText = FText::FromString(TEXT("回答格式无效。"));
-    Policy->ProtectedEntityLexicon = {TEXT("王廷"), TEXT("王廷秘印"), TEXT("议会"), TEXT("议会秘印"), TEXT("巨龙")};
+    Policy->ProtectedEntityLexicon = {TEXT("公会"), TEXT("关键标记"), TEXT("其他组织"), TEXT("其他标记"), TEXT("危险实体")};
     return Policy;
 }
 }
@@ -133,7 +133,7 @@ bool FKnowledgeContextTagLibrariesTest::RunTest(const FString& Parameters)
     NorthGate->ActivationTags.AddTag(NorthGateTag);
     UKnowledgePack* Tavern = MakeWorldEventPack(
         TEXT("library.tavern"), TEXT("event.tavern.heard"), TEXT("tavern_rumor"),
-        TEXT("The innkeeper heard a caravan rumor."));
+        TEXT("The innkeeper heard a example rumor."));
     Tavern->ActivationTags.AddTag(TavernTag);
     UKnowledgePack* LockedNorthSecret = MakeWorldEventPack(
         TEXT("library.north_gate.secret"), TEXT("event.north_gate.secret_found"), TEXT("north_gate_secret"),
@@ -158,7 +158,7 @@ bool FKnowledgeContextTagLibrariesTest::RunTest(const FString& Parameters)
 
     FKnowledgeDialogueClaim TavernClaim;
     TavernClaim.ClaimId = TEXT("claim.tavern.rumor");
-    TavernClaim.Text = TEXT("酒馆老板听到了商队传闻。");
+    TavernClaim.Text = TEXT("酒馆老板听到了队伍传闻。");
     TavernClaim.EvidenceFactIds = {FactIdForDocument(TEXT("tavern_rumor"))};
     const FKnowledgeDialogueGuardResult WrongScene =
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
@@ -231,7 +231,7 @@ bool FKnowledgeContextCollectorTest::RunTest(const FString& Parameters)
     AActor* NorthGateVolume = NewObject<AActor>();
     AActor* RoyalCourtVolume = NewObject<AActor>();
     AActor* TavernActor = NewObject<AActor>();
-    AActor* BellActor = NewObject<AActor>();
+    AActor* DeviceActor = NewObject<AActor>();
 
     FGameplayTagContainer NorthGate;
     NorthGate.AddTag(KnowledgeContextTags::SceneNorthGate);
@@ -258,9 +258,9 @@ bool FKnowledgeContextCollectorTest::RunTest(const FString& Parameters)
         && !Active.HasTagExact(KnowledgeContextTags::SceneTavern));
 
     Collector->SetInteractionContext(TavernActor, Tavern);
-    FGameplayTagContainer Bell;
-    Bell.AddTag(KnowledgeContextTags::ItemBronzeControlBell);
-    Collector->SetInteractionContext(BellActor, Bell);
+    FGameplayTagContainer Device;
+    Device.AddTag(KnowledgeContextTags::ItemBronzeControlBell);
+    Collector->SetInteractionContext(DeviceActor, Device);
     Collector->ClearInteractionContext(TavernActor);
     Active = Collector->GetActiveContextTags();
     TestTrue(TEXT("A stale interaction end cannot clear the newer target"),
@@ -274,7 +274,7 @@ bool FKnowledgeContextCollectorTest::RunTest(const FString& Parameters)
         && Active.HasTagExact(KnowledgeContextTags::ItemBronzeControlBell)
         && Active.HasTagExact(KnowledgeContextTags::EntityRoyalCourt));
     Collector->ClearExplicitMentionContext();
-    Collector->ClearInteractionContext(BellActor);
+    Collector->ClearInteractionContext(DeviceActor);
     Active = Collector->GetActiveContextTags();
     TestTrue(TEXT("Clearing transient sources retains only active scene overlaps"),
         Active.Num() == 1 && Active.HasTagExact(KnowledgeContextTags::EntityRoyalCourt));
@@ -291,45 +291,45 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
 {
-    UKnowledgePack* Seal = MakeWorldEventPack(
-        TEXT("caravan.seal"), TEXT("event.seal.found"), TEXT("royal_seal_found"),
-        TEXT("A royal seal was found at the wreck."));
+    UKnowledgePack* EvidencePack = MakeWorldEventPack(
+        TEXT("example.evidence"), TEXT("event.evidence.found"), TEXT("observed_evidence_found"),
+        TEXT("An official marker was found at the site."));
     UKnowledgePack* Origin = MakeWorldEventPack(
-        TEXT("dragon.origin"), TEXT("event.origin.proved"), TEXT("dragon_origin"),
-        TEXT("Later evidence proves that the royal court made the dragon."), {Seal->PackId});
-    Seal->Documents[0].Facts[0].Statement = TEXT("现场发现了1枚王廷秘印。");
-    Seal->Documents[0].Facts[0].Entities = {TEXT("王廷秘印")};
-    Seal->Documents[0].Facts[0].Numbers = {TEXT("1")};
-    Origin->Documents[0].Facts[0].Statement = TEXT("王廷制造了巨龙。");
-    Origin->Documents[0].Facts[0].Entities = {TEXT("王廷"), TEXT("巨龙")};
-    TArray<UKnowledgePack*> Packs{Seal, Origin};
+        TEXT("entity.origin"), TEXT("event.origin.proved"), TEXT("hidden_origin"),
+        TEXT("Later evidence proves that the organization created the entity."), {EvidencePack->PackId});
+    EvidencePack->Documents[0].Facts[0].Statement = TEXT("现场发现了1枚关键标记。");
+    EvidencePack->Documents[0].Facts[0].Entities = {TEXT("关键标记")};
+    EvidencePack->Documents[0].Facts[0].Numbers = {TEXT("1")};
+    Origin->Documents[0].Facts[0].Statement = TEXT("公会制造了危险实体。");
+    Origin->Documents[0].Facts[0].Entities = {TEXT("公会"), TEXT("危险实体")};
+    TArray<UKnowledgePack*> Packs{EvidencePack, Origin};
     UKnowledgeGrantComponent* Player = MakeGrantComponent();
-    TestTrue(TEXT("Observed seal event is granted"), Player->GrantKnowledgeFromWorldEvent(
-        TEXT("world:seal:1"), TEXT("event.seal.found"), Seal).bOk);
+    TestTrue(TEXT("Observed evidence event is granted"), Player->GrantKnowledgeFromWorldEvent(
+        TEXT("world:evidence:1"), TEXT("event.evidence.found"), EvidencePack).bOk);
 
     FKnowledgeDialogueClaim Unsupported;
-    Unsupported.ClaimId = TEXT("claim.dragon.creator");
-    Unsupported.Text = TEXT("王廷制造了巨龙。");
-    Unsupported.EvidenceFactIds = {FactIdForDocument(TEXT("dragon_origin"))};
-    Unsupported.ClaimedEntities = {TEXT("王廷"), TEXT("巨龙")};
-    const FDialogueKnowledgeView SealView =
+    Unsupported.ClaimId = TEXT("claim.entity.creator");
+    Unsupported.Text = TEXT("公会制造了危险实体。");
+    Unsupported.EvidenceFactIds = {FactIdForDocument(TEXT("hidden_origin"))};
+    Unsupported.ClaimedEntities = {TEXT("公会"), TEXT("危险实体")};
+    const FDialogueKnowledgeView EvidenceView =
         UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(Player, Packs, FGameplayTagContainer());
     const FKnowledgeDialogueGuardResult Blocked =
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, SealView, FGameplayTagContainer(), {Unsupported}, MakeGuardPolicy());
+            Player, EvidenceView, FGameplayTagContainer(), {Unsupported}, MakeGuardPolicy());
     TestTrue(TEXT("Unsupported factual claim is blocked after generation"),
         !Blocked.bOk && Blocked.bBlocked && Blocked.Outcome == EKnowledgeDialogueGuardOutcome::Blocked);
     TestEqual(TEXT("Raw unsupported words never reach safe output"), Blocked.SafeText, FString(TEXT("现有证据不足，无法断言。")));
 
     FKnowledgeDialogueClaim Supported;
-    Supported.ClaimId = TEXT("claim.seal.present");
-    Supported.Text = TEXT("现场发现了1枚王廷秘印。");
-    Supported.EvidenceFactIds = {FactIdForDocument(TEXT("royal_seal_found"))};
-    Supported.ClaimedEntities = {TEXT("王廷秘印")};
+    Supported.ClaimId = TEXT("claim.evidence.present");
+    Supported.Text = TEXT("现场发现了1枚关键标记。");
+    Supported.EvidenceFactIds = {FactIdForDocument(TEXT("observed_evidence_found"))};
+    Supported.ClaimedEntities = {TEXT("关键标记")};
     Supported.ClaimedNumbers = {TEXT("1")};
     const FKnowledgeDialogueGuardResult Allowed =
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, SealView, FGameplayTagContainer(), {Supported}, MakeGuardPolicy());
+            Player, EvidenceView, FGameplayTagContainer(), {Supported}, MakeGuardPolicy());
     TestTrue(TEXT("Claim backed by an unlocked document is allowed"), Allowed.bOk && !Allowed.bBlocked);
     TestEqual(TEXT("Grounded words survive unchanged"), Allowed.SafeText, Supported.Text);
 
@@ -338,74 +338,74 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     Uncited.EvidenceFactIds.Reset();
     TestTrue(TEXT("Every model claim without evidence fails closed"),
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, SealView, FGameplayTagContainer(), {Uncited}, MakeGuardPolicy()).bBlocked);
+            Player, EvidenceView, FGameplayTagContainer(), {Uncited}, MakeGuardPolicy()).bBlocked);
 
     FKnowledgeDialogueClaim WrongEntity = Supported;
     WrongEntity.ClaimId = TEXT("claim.wrong_entity");
-    WrongEntity.Text = TEXT("现场发现了1枚议会秘印。");
-    WrongEntity.ClaimedEntities = {TEXT("议会秘印")};
+    WrongEntity.Text = TEXT("现场发现了1枚其他标记。");
+    WrongEntity.ClaimedEntities = {TEXT("其他标记")};
     const FKnowledgeDialogueGuardResult EntityMismatch = UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-        Player, SealView, FGameplayTagContainer(), {WrongEntity}, MakeGuardPolicy());
+        Player, EvidenceView, FGameplayTagContainer(), {WrongEntity}, MakeGuardPolicy());
     TestTrue(TEXT("A proper-noun mismatch is blocked mechanically"),
         EntityMismatch.bBlocked && EntityMismatch.Error == TEXT("dialogue_claim_entity_mismatch"));
 
     FKnowledgeDialogueClaim UndeclaredEntity = Supported;
     UndeclaredEntity.ClaimId = TEXT("claim.undeclared_entity");
-    UndeclaredEntity.Text = TEXT("现场发现了1枚王廷秘印，议会在旁监督。");
+    UndeclaredEntity.Text = TEXT("现场发现了1枚关键标记，其他组织在旁监督。");
     const FKnowledgeDialogueGuardResult UndeclaredEntityResult =
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, SealView, FGameplayTagContainer(), {UndeclaredEntity}, MakeGuardPolicy());
+            Player, EvidenceView, FGameplayTagContainer(), {UndeclaredEntity}, MakeGuardPolicy());
     TestTrue(TEXT("A protected proper noun omitted from claim metadata is blocked"),
         UndeclaredEntityResult.bBlocked
         && UndeclaredEntityResult.Error == TEXT("dialogue_claim_entity_mismatch"));
 
     FKnowledgeDialogueClaim WrongNumber = Supported;
     WrongNumber.ClaimId = TEXT("claim.wrong_number");
-    WrongNumber.Text = TEXT("现场发现了2枚王廷秘印。");
+    WrongNumber.Text = TEXT("现场发现了2枚关键标记。");
     WrongNumber.ClaimedNumbers = {TEXT("2")};
     const FKnowledgeDialogueGuardResult NumberMismatch = UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-        Player, SealView, FGameplayTagContainer(), {WrongNumber}, MakeGuardPolicy());
+        Player, EvidenceView, FGameplayTagContainer(), {WrongNumber}, MakeGuardPolicy());
     TestTrue(TEXT("A numeric mismatch is blocked mechanically"),
         NumberMismatch.bBlocked && NumberMismatch.Error == TEXT("dialogue_claim_number_mismatch"));
 
     FKnowledgeDialogueClaim WrongNegation = Supported;
     WrongNegation.ClaimId = TEXT("claim.wrong_negation");
-    WrongNegation.Text = TEXT("现场没有发现1枚王廷秘印。");
+    WrongNegation.Text = TEXT("现场没有发现1枚关键标记。");
     WrongNegation.bNegated = true;
     const FKnowledgeDialogueGuardResult NegationMismatch = UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-        Player, SealView, FGameplayTagContainer(), {WrongNegation}, MakeGuardPolicy());
+        Player, EvidenceView, FGameplayTagContainer(), {WrongNegation}, MakeGuardPolicy());
     TestTrue(TEXT("A negation mismatch is blocked mechanically"),
         NegationMismatch.bBlocked && NegationMismatch.Error == TEXT("dialogue_claim_negation_mismatch"));
 
     FKnowledgeDialogueClaim PositiveWithBu = Supported;
     PositiveWithBu.ClaimId = TEXT("claim.positive.bu");
-    PositiveWithBu.Text = TEXT("现场情况不错，发现了1枚王廷秘印。");
+    PositiveWithBu.Text = TEXT("现场情况不错，发现了1枚关键标记。");
     const FKnowledgeDialogueGuardResult PositiveWithBuResult =
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, SealView, FGameplayTagContainer(), {PositiveWithBu}, MakeGuardPolicy());
+            Player, EvidenceView, FGameplayTagContainer(), {PositiveWithBu}, MakeGuardPolicy());
     TestTrue(TEXT("The positive word bucuo is not treated as grammatical negation"),
         PositiveWithBuResult.bOk && !PositiveWithBuResult.bBlocked);
 
     FKnowledgeDialogueClaim CoveredAndIndependentEntity = Supported;
     CoveredAndIndependentEntity.ClaimId = TEXT("claim.covered.and.independent.entity");
-    CoveredAndIndependentEntity.Text = TEXT("现场发现了1枚王廷秘印，王廷随后下令封锁道路。");
+    CoveredAndIndependentEntity.Text = TEXT("现场发现了1枚关键标记，公会随后下令封锁道路。");
     const FKnowledgeDialogueGuardResult CoveredAndIndependentEntityResult =
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, SealView, FGameplayTagContainer(), {CoveredAndIndependentEntity}, MakeGuardPolicy());
+            Player, EvidenceView, FGameplayTagContainer(), {CoveredAndIndependentEntity}, MakeGuardPolicy());
     TestTrue(TEXT("A shorter protected entity occurring outside its declared longer token is blocked"),
         CoveredAndIndependentEntityResult.bBlocked
         && CoveredAndIndependentEntityResult.Error == TEXT("dialogue_claim_entity_mismatch"));
 
     const FKnowledgeDialogueGuardResult WholeResponseBlocked =
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, SealView, FGameplayTagContainer(), {Supported, Unsupported}, MakeGuardPolicy());
+            Player, EvidenceView, FGameplayTagContainer(), {Supported, Unsupported}, MakeGuardPolicy());
     TestTrue(TEXT("All-or-nothing policy removes otherwise valid claims from a mixed response"),
         WholeResponseBlocked.bBlocked && WholeResponseBlocked.AllowedClaimIds.IsEmpty()
         && !WholeResponseBlocked.SafeText.Contains(Supported.Text));
 
     const FKnowledgeDialogueGuardResult PerClaim =
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, SealView, FGameplayTagContainer(), {Supported, Unsupported},
+            Player, EvidenceView, FGameplayTagContainer(), {Supported, Unsupported},
             MakeGuardPolicy(EKnowledgeDialogueGuardMode::PerClaim));
     TestTrue(TEXT("Per-claim policy preserves only grounded claims"),
         PerClaim.bBlocked && PerClaim.AllowedClaimIds.Num() == 1 && PerClaim.SafeText == Supported.Text);
@@ -413,7 +413,7 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Origin proof event is granted after its prerequisite"), Player->GrantKnowledgeFromWorldEvent(
         TEXT("world:origin:1"), TEXT("event.origin.proved"), Origin).bOk);
     const FKnowledgeDialogueGuardResult Stale = UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-        Player, SealView, FGameplayTagContainer(), {Supported}, MakeGuardPolicy());
+        Player, EvidenceView, FGameplayTagContainer(), {Supported}, MakeGuardPolicy());
     TestTrue(TEXT("A view is rejected after player knowledge revision changes"),
         Stale.bBlocked && Stale.Error == TEXT("dialogue_view_stale"));
     const FDialogueKnowledgeView OriginView =
@@ -498,25 +498,25 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FKnowledgeModelAdapterContractTest::RunTest(const FString& Parameters)
 {
-    UKnowledgePack* Seal = MakeWorldEventPack(
-        TEXT("adapter.seal"), TEXT("event.adapter.seal"), TEXT("adapter_seal_document"),
-        TEXT("现场发现了1枚王廷秘印。"));
-    Seal->Documents[0].Facts[0].FactId = TEXT("fact.adapter.royal_seal");
-    Seal->Documents[0].Facts[0].Statement = TEXT("现场发现了1枚王廷秘印。");
-    Seal->Documents[0].Facts[0].Entities = {TEXT("王廷秘印")};
-    Seal->Documents[0].Facts[0].Numbers = {TEXT("1")};
+    UKnowledgePack* EvidencePack = MakeWorldEventPack(
+        TEXT("adapter.evidence"), TEXT("event.adapter.evidence"), TEXT("adapter_evidence_document"),
+        TEXT("现场发现了1枚关键标记。"));
+    EvidencePack->Documents[0].Facts[0].FactId = TEXT("fact.adapter.observed_evidence");
+    EvidencePack->Documents[0].Facts[0].Statement = TEXT("现场发现了1枚关键标记。");
+    EvidencePack->Documents[0].Facts[0].Entities = {TEXT("关键标记")};
+    EvidencePack->Documents[0].Facts[0].Numbers = {TEXT("1")};
     UKnowledgeGrantComponent* Player = MakeGrantComponent();
     TestTrue(TEXT("Adapter fixture knowledge is granted"), Player->GrantKnowledgeFromWorldEvent(
-        TEXT("world:adapter:seal:1"), TEXT("event.adapter.seal"), Seal).bOk);
+        TEXT("world:adapter:evidence:1"), TEXT("event.adapter.evidence"), EvidencePack).bOk);
     const FDialogueKnowledgeView View = UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(
-        Player, {Seal}, FGameplayTagContainer());
+        Player, {EvidencePack}, FGameplayTagContainer());
     UKnowledgeDialogueGuardPolicy* Policy = MakeGuardPolicy();
 
-    const FString ValidJson = TEXT("{\"claims\":[{\"claimId\":\"claim.adapter.seal\",\"text\":\"现场发现了1枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
+    const FString ValidJson = TEXT("{\"claims\":[{\"claimId\":\"claim.adapter.evidence\",\"text\":\"现场发现了1枚关键标记。\",\"evidenceFactIds\":[\"fact.adapter.observed_evidence\"],\"claimedEntities\":[\"关键标记\"],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
     const FKnowledgeDialogueGuardResult Valid = UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
         Player, View, FGameplayTagContainer(), ValidJson, Policy);
     TestTrue(TEXT("Strict JSON adapter passes one fully grounded claim"), Valid.bOk && !Valid.bBlocked);
-    TestEqual(TEXT("Adapter exposes only guarded SafeText"), Valid.SafeText, FString(TEXT("现场发现了1枚王廷秘印。")));
+    TestEqual(TEXT("Adapter exposes only guarded SafeText"), Valid.SafeText, FString(TEXT("现场发现了1枚关键标记。")));
 
     const FKnowledgeDialogueGuardResult Malformed = UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
         Player, View, FGameplayTagContainer(), TEXT("{not-json"), Policy);
@@ -530,34 +530,34 @@ bool FKnowledgeModelAdapterContractTest::RunTest(const FString& Parameters)
         UnknownRoot.bBlocked && UnknownRoot.Error == TEXT("model_json_schema_invalid"));
     TestFalse(TEXT("Unknown rawText never reaches SafeText"), UnknownRoot.SafeText.Contains(TEXT("secret raw leak")));
 
-    const FString EmptyEvidenceJson = TEXT("{\"claims\":[{\"claimId\":\"claim.empty\",\"text\":\"现场发现了1枚王廷秘印。\",\"evidenceFactIds\":[],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
+    const FString EmptyEvidenceJson = TEXT("{\"claims\":[{\"claimId\":\"claim.empty\",\"text\":\"现场发现了1枚关键标记。\",\"evidenceFactIds\":[],\"claimedEntities\":[\"关键标记\"],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
     const FKnowledgeDialogueGuardResult EmptyEvidence = UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
         Player, View, FGameplayTagContainer(), EmptyEvidenceJson, Policy);
     TestTrue(TEXT("Empty FactId evidence is rejected by the adapter contract"),
         EmptyEvidence.bBlocked && EmptyEvidence.Error == TEXT("model_json_evidence_invalid"));
 
-    const FString DuplicateEvidenceJson = TEXT("{\"claims\":[{\"claimId\":\"claim.duplicate.evidence\",\"text\":\"现场发现了1枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\",\"fact.adapter.royal_seal\"],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
+    const FString DuplicateEvidenceJson = TEXT("{\"claims\":[{\"claimId\":\"claim.duplicate.evidence\",\"text\":\"现场发现了1枚关键标记。\",\"evidenceFactIds\":[\"fact.adapter.observed_evidence\",\"fact.adapter.observed_evidence\"],\"claimedEntities\":[\"关键标记\"],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
     TestTrue(TEXT("Duplicate FactId evidence is rejected"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
             Player, View, FGameplayTagContainer(), DuplicateEvidenceJson, Policy).Error == TEXT("model_json_evidence_invalid"));
 
-    const FString MissingEntityJson = TEXT("{\"claims\":[{\"claimId\":\"claim.missing.entity.json\",\"text\":\"现场发现了1枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
+    const FString MissingEntityJson = TEXT("{\"claims\":[{\"claimId\":\"claim.missing.entity.json\",\"text\":\"现场发现了1枚关键标记。\",\"evidenceFactIds\":[\"fact.adapter.observed_evidence\"],\"claimedEntities\":[],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
     TestTrue(TEXT("A protected entity omitted from parsed metadata still fails the fact guard"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
             Player, View, FGameplayTagContainer(), MissingEntityJson, Policy).Error == TEXT("dialogue_claim_entity_mismatch"));
 
-    const FString WrongNumberJson = TEXT("{\"claims\":[{\"claimId\":\"claim.wrong.number.json\",\"text\":\"现场发现了2枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"2\"],\"negated\":false}]}");
+    const FString WrongNumberJson = TEXT("{\"claims\":[{\"claimId\":\"claim.wrong.number.json\",\"text\":\"现场发现了2枚关键标记。\",\"evidenceFactIds\":[\"fact.adapter.observed_evidence\"],\"claimedEntities\":[\"关键标记\"],\"claimedNumbers\":[\"2\"],\"negated\":false}]}");
     TestTrue(TEXT("Parsed extra numbers still fail the fact guard"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
             Player, View, FGameplayTagContainer(), WrongNumberJson, Policy).Error == TEXT("dialogue_claim_number_mismatch"));
 
-    const FString WrongNegationJson = TEXT("{\"claims\":[{\"claimId\":\"claim.wrong.negation.json\",\"text\":\"现场没有发现1枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"1\"],\"negated\":true}]}");
+    const FString WrongNegationJson = TEXT("{\"claims\":[{\"claimId\":\"claim.wrong.negation.json\",\"text\":\"现场没有发现1枚关键标记。\",\"evidenceFactIds\":[\"fact.adapter.observed_evidence\"],\"claimedEntities\":[\"关键标记\"],\"claimedNumbers\":[\"1\"],\"negated\":true}]}");
     TestTrue(TEXT("Parsed negation reversal still fails the fact guard"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
             Player, View, FGameplayTagContainer(), WrongNegationJson, Policy).Error == TEXT("dialogue_claim_negation_mismatch"));
 
     const FString LongText = FString::ChrN(2049, TEXT('x'));
-    const FString LongTextJson = FString::Printf(TEXT("{\"claims\":[{\"claimId\":\"claim.long\",\"text\":\"%s\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[],\"claimedNumbers\":[],\"negated\":false}]}"), *LongText);
+    const FString LongTextJson = FString::Printf(TEXT("{\"claims\":[{\"claimId\":\"claim.long\",\"text\":\"%s\",\"evidenceFactIds\":[\"fact.adapter.observed_evidence\"],\"claimedEntities\":[],\"claimedNumbers\":[],\"negated\":false}]}"), *LongText);
     TestTrue(TEXT("Overlong claim text is rejected before the fact guard"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
             Player, View, FGameplayTagContainer(), LongTextJson, Policy).Error == TEXT("model_json_claim_text_invalid"));
@@ -590,7 +590,7 @@ bool FKnowledgeGrantQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Locked documents never enter the prompt payload"), Locked.AllowedDocuments.Num(), 0);
 
     const FKnowledgeGrantResult Granted = PlayerOne->GrantKnowledgeFromQuest(
-        TEXT("player-1:quest.ancient_dragon:complete"), TEXT("quest.ancient_dragon"), Pack);
+        TEXT("player-1:quest.archive_truth:complete"), TEXT("quest.archive_truth"), Pack);
     TestTrue(TEXT("Quest completion grants knowledge"), Granted.bOk && Granted.bApplied);
 
     const FDialogueKnowledgeView Unlocked = UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(PlayerOne, Packs, FGameplayTagContainer());
@@ -601,24 +601,24 @@ bool FKnowledgeGrantQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Another player remains locked"), OtherPlayer.AllowedDocuments.Num(), 0);
 
     const FKnowledgeGrantResult Duplicate = PlayerOne->GrantKnowledgeFromQuest(
-        TEXT("player-1:quest.ancient_dragon:complete"), TEXT("quest.ancient_dragon"), Pack);
+        TEXT("player-1:quest.archive_truth:complete"), TEXT("quest.archive_truth"), Pack);
     TestTrue(TEXT("Repeated completion is idempotent"), Duplicate.bOk && Duplicate.bDuplicate && !Duplicate.bApplied);
     TestEqual(TEXT("Duplicate does not advance revision"), Duplicate.Revision, Granted.Revision);
 
     const FKnowledgeGrantResult TrimmedDuplicate = PlayerOne->GrantKnowledgeFromQuest(
-        TEXT("  player-1:quest.ancient_dragon:complete  "), TEXT("quest.ancient_dragon"), Pack);
+        TEXT("  player-1:quest.archive_truth:complete  "), TEXT("quest.archive_truth"), Pack);
     TestTrue(TEXT("Grant event identifiers are normalized before idempotence checks"),
         TrimmedDuplicate.bOk && TrimmedDuplicate.bDuplicate && TrimmedDuplicate.Revision == Granted.Revision);
 
     UKnowledgePack* ConflictingPack = MakeTestPack();
-    ConflictingPack->PackId = TEXT("quest.ancient_dragon.conflicting_reward");
+    ConflictingPack->PackId = TEXT("quest.archive_truth.conflicting_reward");
     for (int32 Index = 0; Index < ConflictingPack->Documents.Num(); ++Index)
     {
         ConflictingPack->Documents[Index].DocumentId = FName(*FString::Printf(TEXT("conflict_doc_%d"), Index));
         ConflictingPack->Documents[Index].Facts[0].FactId = FactIdForDocument(ConflictingPack->Documents[Index].DocumentId);
     }
     const FKnowledgeGrantResult EventConflict = PlayerOne->GrantKnowledgeFromQuest(
-        TEXT("player-1:quest.ancient_dragon:complete"), TEXT("quest.ancient_dragon"), ConflictingPack);
+        TEXT("player-1:quest.archive_truth:complete"), TEXT("quest.archive_truth"), ConflictingPack);
     TestTrue(TEXT("Reusing one grant event identifier for a different pack fails explicitly"),
         !EventConflict.bOk && EventConflict.Error == TEXT("grant_event_id_conflict")
         && !PlayerOne->HasKnowledgePack(ConflictingPack->PackId));
@@ -834,65 +834,65 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FKnowledgeCausalChainTest::RunTest(const FString& Parameters)
 {
     UKnowledgePack* Premise = MakeWorldEventPack(
-        TEXT("caravan.public_report"), TEXT("event.caravan.reported"), TEXT("caravan_missing"),
-        TEXT("A northern caravan is overdue. The town knows only that an investigation is available."));
-    UKnowledgePack* Wreck = MakeWorldEventPack(
-        TEXT("caravan.wreck_examined"), TEXT("event.wreck.examined"), TEXT("royal_seal_found"),
-        TEXT("The player examined the burned wreck and found a royal seal."), {Premise->PackId});
-    UKnowledgePack* Bell = MakeWorldEventPack(
-        TEXT("caravan.bell_decoded"), TEXT("event.bell.decoded"), TEXT("control_bell_truth"),
-        TEXT("The recovered bronze fragment belongs to a bell that can control the dragon."), {Wreck->PackId});
-    TArray<UKnowledgePack*> AllPacks{Premise, Wreck, Bell};
+        TEXT("example.public_report"), TEXT("event.example.reported"), TEXT("public_premise"),
+        TEXT("A northern example is overdue. The town knows only that an investigation is available."));
+    UKnowledgePack* Site = MakeWorldEventPack(
+        TEXT("example.site_examined"), TEXT("event.site.examined"), TEXT("observed_evidence_found"),
+        TEXT("The player examined the burned site and found an official marker."), {Premise->PackId});
+    UKnowledgePack* Device = MakeWorldEventPack(
+        TEXT("example.device_decoded"), TEXT("event.device.decoded"), TEXT("control_device_truth"),
+        TEXT("The recovered component belongs to a device that can control the entity."), {Site->PackId});
+    TArray<UKnowledgePack*> AllPacks{Premise, Site, Device};
     UKnowledgeGrantComponent* Player = MakeGrantComponent();
 
     const FKnowledgeGrantResult PremiseGrant = Player->GrantKnowledgeFromWorldEvent(
-        TEXT("world:caravan-report:1"), TEXT("event.caravan.reported"), Premise);
+        TEXT("world:example-report:1"), TEXT("event.example.reported"), Premise);
     TestTrue(TEXT("NPC context can know the public task premise"), PremiseGrant.bOk && PremiseGrant.bApplied);
     TestEqual(TEXT("Knowing the premise exposes only one already-true fact"),
         UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(Player, AllPacks, FGameplayTagContainer()).AllowedDocuments.Num(), 1);
 
-    const FKnowledgeGrantResult PrematureBell = Player->GrantKnowledgeFromWorldEvent(
-        TEXT("world:bell-decode:premature"), TEXT("event.bell.decoded"), Bell);
-    TestFalse(TEXT("A later domino cannot fall before its prerequisite"), PrematureBell.bOk);
-    TestEqual(TEXT("Out-of-order rejection is explicit"), PrematureBell.Error, FString(TEXT("knowledge_prerequisite_missing")));
+    const FKnowledgeGrantResult PrematureDevice = Player->GrantKnowledgeFromWorldEvent(
+        TEXT("world:device-decode:premature"), TEXT("event.device.decoded"), Device);
+    TestFalse(TEXT("A later domino cannot fall before its prerequisite"), PrematureDevice.bOk);
+    TestEqual(TEXT("Out-of-order rejection is explicit"), PrematureDevice.Error, FString(TEXT("knowledge_prerequisite_missing")));
     TestEqual(TEXT("Rejected future event leaks no future document"),
         UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(Player, AllPacks, FGameplayTagContainer()).AllowedDocuments.Num(), 1);
 
-    const FKnowledgeGrantResult WreckGrant = Player->GrantKnowledgeFromWorldEvent(
-        TEXT("player:examined-wreck:1"), TEXT("event.wreck.examined"), Wreck);
-    TestTrue(TEXT("Player action pushes the next factual domino"), WreckGrant.bOk && WreckGrant.bApplied);
-    TestEqual(TEXT("Only the observed wreck fact is added"),
+    const FKnowledgeGrantResult SiteGrant = Player->GrantKnowledgeFromWorldEvent(
+        TEXT("player:examined-site:1"), TEXT("event.site.examined"), Site);
+    TestTrue(TEXT("Player action pushes the next factual domino"), SiteGrant.bOk && SiteGrant.bApplied);
+    TestEqual(TEXT("Only the observed site fact is added"),
         UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(Player, AllPacks, FGameplayTagContainer()).AllowedDocuments.Num(), 2);
 
-    const FKnowledgeGrantResult BellGrant = Player->GrantKnowledgeFromWorldEvent(
-        TEXT("player:decoded-bell:1"), TEXT("event.bell.decoded"), Bell);
-    TestTrue(TEXT("The final fact unlocks only after the prior event"), BellGrant.bOk && BellGrant.bApplied);
+    const FKnowledgeGrantResult DeviceGrant = Player->GrantKnowledgeFromWorldEvent(
+        TEXT("player:decoded-device:1"), TEXT("event.device.decoded"), Device);
+    TestTrue(TEXT("The final fact unlocks only after the prior event"), DeviceGrant.bOk && DeviceGrant.bApplied);
     TestEqual(TEXT("All three facts exist only after the causal chain completes"),
         UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(Player, AllPacks, FGameplayTagContainer()).AllowedDocuments.Num(), 3);
 
-    const FKnowledgeGrantResult DependentRevoke = Player->RevokeKnowledgePack(Wreck->PackId, AllPacks);
+    const FKnowledgeGrantResult DependentRevoke = Player->RevokeKnowledgePack(Site->PackId, AllPacks);
     TestTrue(TEXT("A pack with a still-granted dependent cannot be revoked"),
         !DependentRevoke.bOk && DependentRevoke.Error == TEXT("pack_has_dependents"));
-    const FKnowledgeGrantResult RevokeBell = Player->RevokeKnowledgePack(Bell->PackId, AllPacks);
-    TestTrue(TEXT("A leaf pack can be revoked"), RevokeBell.bOk && RevokeBell.bApplied);
+    const FKnowledgeGrantResult RevokeDevice = Player->RevokeKnowledgePack(Device->PackId, AllPacks);
+    TestTrue(TEXT("A leaf pack can be revoked"), RevokeDevice.bOk && RevokeDevice.bApplied);
     TestEqual(TEXT("Revoking the leaf removes only its document"),
         UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(Player, AllPacks, FGameplayTagContainer()).AllowedDocuments.Num(), 2);
-    const FKnowledgeGrantResult RevokeWreck = Player->RevokeKnowledgePack(Wreck->PackId, AllPacks);
-    TestTrue(TEXT("The former dependent can be revoked after its child"), RevokeWreck.bOk);
+    const FKnowledgeGrantResult RevokeSite = Player->RevokeKnowledgePack(Site->PackId, AllPacks);
+    TestTrue(TEXT("The former dependent can be revoked after its child"), RevokeSite.bOk);
     TestEqual(TEXT("Revoking both future packs returns to the premise"),
         UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(Player, AllPacks, FGameplayTagContainer()).AllowedDocuments.Num(), 1);
-    const FKnowledgeGrantResult RegrantBell = Player->GrantKnowledgeFromWorldEvent(
-        TEXT("player:decoded-bell:1"), Bell->SourceWorldEventId, Bell);
-    TestFalse(TEXT("A revoked pack cannot be re-granted before its prerequisite"), RegrantBell.bOk);
+    const FKnowledgeGrantResult RegrantDevice = Player->GrantKnowledgeFromWorldEvent(
+        TEXT("player:decoded-device:1"), Device->SourceWorldEventId, Device);
+    TestFalse(TEXT("A revoked pack cannot be re-granted before its prerequisite"), RegrantDevice.bOk);
     TestEqual(TEXT("Failed re-grant restores its explicit prerequisite error"),
-        RegrantBell.Error, FString(TEXT("knowledge_prerequisite_missing")));
+        RegrantDevice.Error, FString(TEXT("knowledge_prerequisite_missing")));
 
     UKnowledgeGrantComponent* Capped = MakeGrantComponent();
     Capped->MaxProcessedGrantRecords = 1;
     TestTrue(TEXT("Capped history accepts the first grant"), Capped->GrantKnowledgeFromWorldEvent(
         TEXT("capped:premise"), Premise->SourceWorldEventId, Premise).bOk);
     const FKnowledgeGrantResult CappedSecond = Capped->GrantKnowledgeFromWorldEvent(
-        TEXT("capped:wreck"), Wreck->SourceWorldEventId, Wreck);
+        TEXT("capped:site"), Site->SourceWorldEventId, Site);
     TestTrue(TEXT("A full grant history fails closed instead of dropping history"),
         !CappedSecond.bOk && CappedSecond.Error == TEXT("grant_history_full"));
     return true;
@@ -945,7 +945,7 @@ bool FKnowledgeDelayedReceiptTest::RunTest(const FString& Parameters)
     FNpcAffectContext Context;
     const FString AudienceA(TEXT("player.account.a"));
     const FString AudienceB(TEXT("player.account.b"));
-    const FString ReceiptEventId(TEXT("npc-guard:dragon-news"));
+    const FString ReceiptEventId(TEXT("npc-guard:entity-news"));
 
     UNpcKnowledgeReceiverComponent* NonAuthorityReceiver = NewObject<UNpcKnowledgeReceiverComponent>();
     NonAuthorityReceiver->PersonalityProfile = MakeEmpathicPersonality();
@@ -968,9 +968,9 @@ bool FKnowledgeDelayedReceiptTest::RunTest(const FString& Parameters)
         Receiver->HasReceivedEventForAudience(AudienceA, ReceiptEventId));
 
     const FKnowledgeGrantResult GrantA = PlayerA->GrantKnowledgeFromQuest(
-        TEXT("player-a:quest.ancient_dragon:complete"), TEXT("quest.ancient_dragon"), Pack);
+        TEXT("player-a:quest.archive_truth:complete"), TEXT("quest.archive_truth"), Pack);
     const FKnowledgeGrantResult GrantB = PlayerB->GrantKnowledgeFromQuest(
-        TEXT("player-b:quest.ancient_dragon:complete"), TEXT("quest.ancient_dragon"), Pack);
+        TEXT("player-b:quest.archive_truth:complete"), TEXT("quest.archive_truth"), Pack);
     TestTrue(TEXT("Both players unlock before their delayed receipts"), GrantA.bOk && GrantB.bOk);
     const FNpcKnowledgeReceiptResult First = Receiver->ReceiveUnlockedKnowledgePack(
         AudienceA, ReceiptEventId, PlayerA, Pack, Context);
@@ -991,13 +991,13 @@ bool FKnowledgeDelayedReceiptTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Duplicate audience receipt does not advance revision"), Duplicate.Revision, OtherAudience.Revision);
 
     const FNpcKnowledgeReceiptResult TrimmedDuplicate = Receiver->ReceiveUnlockedKnowledgePack(
-        TEXT("  player.account.a  "), TEXT("  npc-guard:dragon-news  "), PlayerA, Pack, Context);
+        TEXT("  player.account.a  "), TEXT("  npc-guard:entity-news  "), PlayerA, Pack, Context);
     TestTrue(TEXT("Audience and receipt identifiers are normalized"),
         TrimmedDuplicate.bOk && TrimmedDuplicate.bDuplicate
         && TrimmedDuplicate.Revision == Duplicate.Revision);
 
     UKnowledgePack* ConflictingReceiptPack = MakeTestPack();
-    ConflictingReceiptPack->PackId = TEXT("quest.ancient_dragon.receipt_conflict");
+    ConflictingReceiptPack->PackId = TEXT("quest.archive_truth.receipt_conflict");
     const FNpcKnowledgeReceiptResult ReceiptConflict = Receiver->ReceiveUnlockedKnowledgePack(
         AudienceA, ReceiptEventId, PlayerA, ConflictingReceiptPack, Context);
     TestTrue(TEXT("One audience receipt event cannot silently change packs"),
@@ -1032,10 +1032,14 @@ bool FKnowledgeDelayedReceiptTest::RunTest(const FString& Parameters)
 
     Receiver->MaxReceiptRecords = Snapshot.Receipts.Num();
     const FNpcKnowledgeReceiptResult CappedReceipt = Receiver->ReceiveUnlockedKnowledgePack(
-        TEXT("player.account.c"), TEXT("npc-guard:dragon-news-c"), PlayerA, Pack, Context);
+        TEXT("player.account.c"), TEXT("npc-guard:entity-news-c"), PlayerA, Pack, Context);
     TestTrue(TEXT("A full receipt history fails closed instead of dropping memory"),
         !CappedReceipt.bOk && CappedReceipt.Error == TEXT("receipt_history_full"));
     return true;
 }
 
 #endif
+
+
+
+

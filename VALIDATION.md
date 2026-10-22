@@ -11,7 +11,7 @@
 
 0.2.1 / Schema v3 已通过真实 UE 编译与自动化：插件 10/10、演示宿主 2/2、专用服务器/双客户端 PIE 1/1。严格统计为 **13 个用例执行，12 个无警告成功，1 个带 36 条 NetGUID 框架警告成功，0 失败，0 未运行**。网络警告来自 UE 临时 PIE Level，业务断言错误为 0；数量与逐项结果由 UE JSON 报告生成。
 
-0.2.1 已重新运行保存关卡 `/Game/Maps/KnowledgeAcceptance` 的纯后台离屏验收。`UnrealEditor-Cmd -game -RenderOffscreen` 实际载入该关卡，移动持久化碰撞 Probe 穿过 North Gate Trigger 与 Bronze Bell 交互范围；8/8 检查通过，进程退出码 0，并生成新的 JSON、日志及锁定/解锁截图。该证据证明当前版本的真实接线回归，但不冒充人工 Play。
+0.2.1 已重新运行保存关卡 `/Game/Maps/KnowledgeAcceptance` 的纯后台离屏验收。`UnrealEditor-Cmd -game -RenderOffscreen` 实际载入该关卡，移动持久化碰撞 Probe 穿过场景 Trigger 与交互范围；8/8 检查通过，进程退出码 0，并生成新的 JSON、日志及锁定/解锁截图。该证据证明当前版本的真实接线回归，但不冒充人工 Play。
 
 ## 构建
 
@@ -99,6 +99,7 @@
 - 1 万 NPC / 千包基准尚未完成。
 - 网络测试当前使用 CQTest 的临时 PIE World，因此报告保留 36 条 UE NetGUID 框架警告；尚未在项目保存的正式多人关卡或外部独立进程专用服务器上复验。
 - 未执行 Cook/Package，也未进行人工 Play 画面验收；当前新增证据是保存关卡、真实碰撞和 RenderOffscreen 截图，截图三维背景因关卡未布置正式灯光而为黑色，HUD 状态可见。
+
 
 
 

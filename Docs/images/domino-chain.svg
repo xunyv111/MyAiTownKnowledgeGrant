@@ -1,6 +1,6 @@
 ﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" role="img" aria-labelledby="title desc">
   <title id="title">Quest knowledge as a domino chain</title>
-  <desc id="desc">Four domino tiles: public premise, wreck examination, tracks, and control bell. Each event unlocks only the next fact through authority grants.</desc>
+  <desc id="desc">Four domino tiles: public premise, site observation, linked fact, and final confirmation. Each event unlocks only the next fact through authority grants.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
@@ -19,42 +19,42 @@
     <rect x="60" y="140" width="200" height="200" rx="16" fill="#12213a" stroke="#38bdf8" stroke-width="2"/>
     <text x="80" y="176" fill="#38bdf8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">01 · PUBLIC PREMISE</text>
     <text x="80" y="212" fill="#f8fafc" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="24" font-weight="700">公共前提</text>
-    <text x="80" y="240" fill="#cbd5e1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">商队失踪，调查已发布</text>
+    <text x="80" y="240" fill="#cbd5e1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">公开信息已经成立</text>
     <line x1="80" y1="260" x2="240" y2="260" stroke="#334155"/>
-    <text x="80" y="286" fill="#7dd3fc" font-family="Consolas, monospace" font-size="13">caravan_missing</text>
+    <text x="80" y="286" fill="#7dd3fc" font-family="Consolas, monospace" font-size="13">fact.public</text>
     <text x="80" y="316" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">GLOBAL · 始终可知</text>
   </g>
 
   <!-- Tile 02 -->
   <g filter="url(#shadow)">
     <rect x="330" y="140" width="200" height="200" rx="16" fill="#241b10" stroke="#fbbf24" stroke-width="2"/>
-    <text x="350" y="176" fill="#fbbf24" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">02 · WRECK EXAMINED</text>
-    <text x="350" y="212" fill="#f8fafc" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="24" font-weight="700">检查残骸</text>
-    <text x="350" y="240" fill="#cbd5e1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">发现非自然火痕与拖拽痕迹</text>
+    <text x="350" y="176" fill="#fbbf24" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">02 · SITE OBSERVED</text>
+    <text x="350" y="212" fill="#f8fafc" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="24" font-weight="700">现场观察</text>
+    <text x="350" y="240" fill="#cbd5e1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">发现直接证据</text>
     <line x1="350" y1="260" x2="510" y2="260" stroke="#4a3a20"/>
-    <text x="350" y="286" fill="#fcd34d" font-family="Consolas, monospace" font-size="13">wreck_evidence</text>
+    <text x="350" y="286" fill="#fcd34d" font-family="Consolas, monospace" font-size="13">fact.observed</text>
     <text x="350" y="316" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">REQUIRES 01</text>
   </g>
 
   <!-- Tile 03 -->
   <g filter="url(#shadow)">
     <rect x="600" y="140" width="200" height="200" rx="16" fill="#2a1710" stroke="#fb923c" stroke-width="2"/>
-    <text x="620" y="176" fill="#fb923c" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">03 · TRACKS FOLLOWED</text>
-    <text x="620" y="212" fill="#f8fafc" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="24" font-weight="700">追踪足迹</text>
-    <text x="620" y="240" fill="#cbd5e1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">发现龙鳞与神殿旧路</text>
+    <text x="620" y="176" fill="#fb923c" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">03 · LINK INVESTIGATED</text>
+    <text x="620" y="212" fill="#f8fafc" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="24" font-weight="700">关联调查</text>
+    <text x="620" y="240" fill="#cbd5e1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">发现关联事实</text>
     <line x1="620" y1="260" x2="780" y2="260" stroke="#4a2a18"/>
-    <text x="620" y="286" fill="#fdba74" font-family="Consolas, monospace" font-size="13">dragon_tracks_found</text>
+    <text x="620" y="286" fill="#fdba74" font-family="Consolas, monospace" font-size="13">fact.linked</text>
     <text x="620" y="316" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">REQUIRES 02</text>
   </g>
 
   <!-- Tile 04 -->
   <g filter="url(#shadow)">
     <rect x="870" y="140" width="200" height="200" rx="16" fill="#2a111a" stroke="#f43f5e" stroke-width="2"/>
-    <text x="890" y="176" fill="#fb7185" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">04 · FRAGMENT DECODED</text>
-    <text x="890" y="212" fill="#f8fafc" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="24" font-weight="700">解读碎片</text>
-    <text x="890" y="240" fill="#cbd5e1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">确认青铜控制钟真相</text>
+    <text x="890" y="176" fill="#fb7185" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">04 · FINAL CONFIRMATION</text>
+    <text x="890" y="212" fill="#f8fafc" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="24" font-weight="700">最终确认</text>
+    <text x="890" y="240" fill="#cbd5e1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">最终事实成立</text>
     <line x1="890" y1="260" x2="1050" y2="260" stroke="#4a1e2a"/>
-    <text x="890" y="286" fill="#fda4af" font-family="Consolas, monospace" font-size="13">bronze_control_bell</text>
+    <text x="890" y="286" fill="#fda4af" font-family="Consolas, monospace" font-size="13">fact.resolved</text>
     <text x="890" y="316" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">REQUIRES 03</text>
   </g>
 
@@ -66,4 +66,6 @@
   <text x="60" y="390" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15">Each world event unlocks only its own fact. A later domino cannot fall before its prerequisite.</text>
   <text x="60" y="418" fill="#64748b" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">Grant Knowledge From World Event · Authority only · Prerequisite closure checked on grant and restore</text>
 </svg>
+
+
 
