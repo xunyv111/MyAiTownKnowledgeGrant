@@ -1,0 +1,9 @@
+* text=auto
+
+*.umap binary
+*.uasset binary
+*.png binary
+*.jpg binary
+*.zip binary
+*.dll binary
+*.pdb binary

@@ -1,0 +1,18 @@
+{
+  "FileVersion": 3,
+  "Version": 2,
+  "VersionName": "0.2.1",
+  "FriendlyName": "My AI Town Knowledge Grant",
+  "Description": "Server-authoritative, quest-gated knowledge grants for AI NPC dialogue.",
+  "Category": "AI",
+  "CreatedBy": "xunyv",
+  "CanContainContent": true,
+  "IsBetaVersion": true,
+  "Modules": [
+    {
+      "Name": "MyAiTownKnowledgeGrant",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}
