@@ -1,5 +1,5 @@
 ﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" role="img" aria-labelledby="title desc">
-  <title id="title">Quest knowledge as a domino chain</title>
+  <title id="title">多米诺骨牌：未来事实如何解锁 / Domino chain</title>
   <desc id="desc">Four domino tiles: public premise, site observation, linked fact, and final confirmation. Each event unlocks only the next fact through authority grants.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -11,8 +11,8 @@
   </defs>
 
   <rect width="1200" height="460" fill="#0b1220"/>
-  <text x="60" y="54" fill="#e2e8f0" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="30" font-weight="700">Quest knowledge is a domino chain</text>
-  <text x="60" y="86" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16">Authority grants only facts that have already happened. Later facts stay absent.</text>
+  <text x="60" y="54" fill="#e2e8f0" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="30" font-weight="700">多米诺骨牌：未来事实如何解锁</text>
+  <text x="60" y="86" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16">Domino chain · Authority grants only facts that have already happened. Later facts stay absent.</text>
 
   <!-- Tile 01 -->
   <g filter="url(#shadow)">
@@ -66,6 +66,7 @@
   <text x="60" y="390" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15">Each world event unlocks only its own fact. A later domino cannot fall before its prerequisite.</text>
   <text x="60" y="418" fill="#64748b" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">Grant Knowledge From World Event · Authority only · Prerequisite closure checked on grant and restore</text>
 </svg>
+
 
 
 
