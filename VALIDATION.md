@@ -1,22 +1,20 @@
 ﻿# 验证记录
 
-> 本仓库只包含插件 10 项 Automation 测试。宿主演示与网络 PIE 测试由独立 Demo 仓库维护，下表中的相关结果作为 0.2.1 跨仓库证据保留。
-
-
-
-验证日期：2026-10-22  
+验证日期：2026-10-23
 真实宿主：Unreal Engine 5.7.4，WindowsEditor / Win64 Development，NullRHI
 
 ## 本轮结论
 
-0.2.1 / Schema v3 已通过真实 UE 编译与自动化：插件 10/10、演示宿主 2/2、专用服务器/双客户端 PIE 1/1。严格统计为 **13 个用例执行，12 个无警告成功，1 个带 36 条 NetGUID 框架警告成功，0 失败，0 未运行**。网络警告来自 UE 临时 PIE Level，业务断言错误为 0；数量与逐项结果由 UE JSON 报告生成。
+0.4.0 / Schema v3 已通过真实 UE 编译与自动化。隔离 `RunUAT BuildPlugin` 覆盖 UHT WarningsAsErrors、Editor Development、Game Development 和 Game Shipping。插件 Automation 12/12；隔离 ARPG 宿主 5/5，其中 4 项无警告成功，专用服务器/双客户端 PIE 1 项带 36 条 NetGUID 框架警告成功。严格统计为 **17 个用例执行，16 个无警告成功，1 个带框架警告成功，0 失败，0 未运行**。新增 Provider 合同覆盖显式同意、HTTPS、Key 不进入 JSON、当轮字段披露和结构化语义响应。
 
-0.2.1 已重新运行保存关卡 `/Game/Maps/KnowledgeAcceptance` 的纯后台离屏验收。`UnrealEditor-Cmd -game -RenderOffscreen` 实际载入该关卡，移动持久化碰撞 Probe 穿过场景 Trigger 与交互范围；8/8 检查通过，进程退出码 0，并生成新的 JSON、日志及锁定/解锁截图。该证据证明当前版本的真实接线回归，但不冒充人工 Play。
+0.3.0 新增 `Runtime.SemanticReviewContract`：验证只有机械放行结果才能创建供应商无关请求；完整外部批准才释放 `FinalApprovedText`；授权在 API 等待期间改变时旧响应失败关闭；语义拒绝返回宿主可信兜底。新增 `KnowledgeGrantHost.ARPG.AdapterFlow`：验证服务器任务未完成拒绝、固定注册表授予、玩家 Owner 绑定、幂等、完成修订乱序拒绝、调试事件拒绝和瞬态审计记录。
+
+保存关卡 `/Game/Maps/KnowledgeAcceptance` 的最近一次纯后台离屏验收来自 0.2.1：`UnrealEditor-Cmd -game -RenderOffscreen` 实际载入该关卡，移动持久化碰撞 Probe 穿过 North Gate Trigger 与 Bronze Bell 交互范围；8/8 检查通过。0.3.0 没有修改该关卡接线，但尚未重跑离屏截图，因此这项证据只作为既有回归基线，不冒充当前版本人工 Play。
 
 ## 构建
 
 - 官方插件打包：`RunUAT BuildPlugin` 使用纯 ASCII 临时 HostProject，从隔离副本完成 `UnrealEditor Win64 Development`、`UnrealGame Win64 Development` 与 `UnrealGame Win64 Shipping`，UHT 均启用 `WarningsAsErrors`；AutomationTool 输出 `BUILD SUCCESSFUL`，退出码 0。
-- `KnowledgeGrantHostEditor Win64 Development`：在 ASCII 临时副本完成首次全量构建（32 个动作，其中一处测试编译错误修正后）；最终增量构建 5 个动作并链接成功，插件、宿主和全部测试源码均参与编译。
+- `KnowledgeGrantHostEditor Win64 Development`：把最终 BuildPlugin 产物装入 ASCII 临时宿主后完成 30 个动作并链接成功；插件、宿主和全部测试源码均参与最终编译。
 - 工作区直接构建先被同名旧 Release 插件重复发现阻止；临时禁用旧描述符后进入 UHT，又命中已知中文路径 PCH 问题。两次均未被当作代码失败，描述符已恢复，最终 ASCII 隔离构建成功。
 
 原工作区含中文路径，真实编译使用 ASCII 临时验证副本；机器相关原始报告与日志不随公开仓库分发。没有修改用户的 UE 全局设置。
@@ -30,18 +28,22 @@
 | `Reaction.DelayedReceipt` | Success | 0 | 0 |
 | `Reaction.PersonalityAndAffect` | Success | 0 | 0 |
 | `Runtime.CausalChain` | Success | 0 | 0 |
+| `Runtime.AiNpcProviderContract` | Success | 0 | 0 |
 | `Runtime.ContextCollector` | Success | 0 | 0 |
 | `Runtime.ContextTagLibraries` | Success | 0 | 0 |
 | `Runtime.DialogueGuard` | Success | 0 | 0 |
 | `Runtime.ModelAdapterContract` | Success | 0 | 0 |
 | `Runtime.QuestFlow` | Success | 0 | 0 |
+| `Runtime.SemanticReviewContract` | Success | 0 | 0 |
 | `Runtime.SnapshotConsistency` | Success | 0 | 0 |
 | `Runtime.Validation` | Success | 0 | 0 |
 
-宿主演示集合 `KnowledgeGrantHost.Demo`：
+宿主集合 `KnowledgeGrantHost`：
 
 | 测试 | 结果 | 警告 | 错误 |
 |---|---|---:|---:|
+| `ARPG.AdapterFlow` | Success | 0 | 0 |
+| `BlueprintDemo.Flow` | Success | 0 | 0 |
 | `Demo.Flow` | Success | 0 | 0 |
 | `Demo.StaggeredSpread` | Success | 0 | 0 |
 
@@ -51,7 +53,7 @@
 |---|---|---:|---:|
 | `AuthorityAndPlayerIsolation` | Success | 36 | 0 |
 
-`Runtime.ModelAdapterContract` 明确覆盖：合法严格 JSON 放行；畸形 JSON、未知根字段、空 FactId、重复 FactId、遗漏受保护实体和超长文本失败关闭；额外数字与否定反转在解析后由 FactId 守卫拒绝；原始错误载荷不会进入 `SafeText`。适配器没有向 Blueprint 提供“只解析不守卫”的公开节点。
+`Runtime.ModelAdapterContract` 明确覆盖：合法严格 JSON 放行；畸形 JSON、未知根字段、空 FactId、重复 FactId、遗漏受保护实体和超长文本失败关闭；额外数字与否定反转在解析后由 FactId 守卫拒绝；原始错误载荷不会进入机械 `SafeText`。适配器没有向 Blueprint 提供“只解析不守卫”的公开节点。
 
 `Runtime.ContextCollector` 明确覆盖：多个重叠场景来源取并集；同一来源更新时替换旧标签；退出一个 Volume 不清除其他 Volume；切换交互对象后，旧对象迟到的 End 事件不能清除新对象；显式专名与场景/交互叠加；会话重置清空所有来源。收集器只选择信息库，不调用任何知识授予 API。
 
@@ -71,7 +73,7 @@
 
 公开仓库只保留与机器无关的验证摘要：[Docs/VERIFICATION.md](Docs/VERIFICATION.md)。原始 UE JSON 报告、日志和截图包含本机路径与主机信息，未随公开仓库分发；发布者在 Release 资产中单独保存证据包。
 
-本轮直接读取 UE JSON 报告并核对日志末尾 `TEST COMPLETE. EXIT CODE`：12 succeeded、1 succeeded with warnings、0 failed、0 not run，测试进程退出码为 0。
+本轮直接读取最终发布包对应的 UE JSON 报告：15 succeeded、1 succeeded with warnings、0 failed、0 not run，两个测试进程退出码均为 0。
 
 ## 已证实的运行结果
 
@@ -83,7 +85,7 @@
 - 保存并清空会同时重置 Receiver 记忆、`LatestReactions` 和场景 NPC 文字；恢复成功后可见人格反应由 Receiver 快照重新构建。
 - Receiver reaction receipt 以稳定 `(AudienceId, ReceiptEventId)` 为键；共享 NPC 面向不同玩家的反应和幂等状态彼此隔离，但仍不参与知识授权。
 - 模型输出根对象只能包含 `claims`；claim 只能包含 `claimId`、`text`、`evidenceFactIds`、`claimedEntities`、`claimedNumbers`、`negated`，并受固定长度和数量上限约束。
-- 模型 JSON 接入可直接调用整合入口取得 `FKnowledgeDialogueGuardResult`；字幕、语音、行为和日志使用 `SafeText`。插件没有提供“把 JSON 解析成原始 claims 后直接返回”的 parser-only 蓝图出口；已有结构化 claim 的宿主仍可显式调用底层事实守卫。
+- 模型 JSON 接入先取得 `FKnowledgeDialogueGuardResult`，再由 `KnowledgeSemanticReviewComponent` 形成最终结果；自由生成字幕、语音、行为和日志使用 `FinalApprovedText`。插件没有提供“把 JSON 解析成原始 claims 后直接返回”的 parser-only 蓝图出口，语义审查响应也不能携带替换台词。
 - 演示实测：罗文 `urgent / investigate`，米拉 `fearful / seek_safety`，芬恩 `fearful / investigate`；同一消息仍结合人格产生不同反应。
 - Receiver 仍仅保存“NPC 收到消息后的反应记忆”，不参与知识授权；公式保持“玩家授权 ∩ 当前语境 ∩ 输出证据校验”。
 
@@ -93,14 +95,12 @@
 - 插件无法阻止宿主故意绕开统一入口，把模型原文直接送到自建字幕、语音、行为或日志系统；接入审查仍是必要边界。
 - 知识与 Receiver 的 v1/v2 快照均被明确拒绝；自动迁移尚未实现，宿主升级时需要显式迁移工具、重新生成存档或清空非授权反应记忆。
 - `ProcessedGrants` / Receiver receipts 尚无滚动窗口，也没有 revoke/rollback；长会话仍需宿主有界保留与迁移策略。
-- 未实现跨服授权账本、玩家换服加载、服务端正文存储、NPC 全局持久身份或客户端资产反拆包；当前是 MMO 宿主可集成的 Runtime 基础件，不是 MMO 后端。
+- 产品边界固定为单机/联机 ARPG；未实现跨服授权账本、服务器迁移、服务端正文存储、NPC 全局持久身份或客户端资产反拆包。
 - 尚未在人工 Play 中把真实关卡 Trigger Volume 蓝图连接到收集器；当前证据覆盖 Runtime 组件、来源切换契约和演示 C++ 接线。
 - 已完成保存关卡中真实 Trigger/交互 Actor 的离屏后台接线验收；尚未做有人值守的人工键鼠体验验收。
 - 1 万 NPC / 千包基准尚未完成。
 - 网络测试当前使用 CQTest 的临时 PIE World，因此报告保留 36 条 UE NetGUID 框架警告；尚未在项目保存的正式多人关卡或外部独立进程专用服务器上复验。
 - 未执行 Cook/Package，也未进行人工 Play 画面验收；当前新增证据是保存关卡、真实碰撞和 RenderOffscreen 截图，截图三维背景因关卡未布置正式灯光而为黑色，HUD 状态可见。
-
-
 
 
 

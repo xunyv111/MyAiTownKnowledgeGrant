@@ -1,26 +1,26 @@
-# Unreal generated artifacts
+# Unreal Engine generated files
 Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
-*.sln
-*.suo
+
+# IDE and local workspace files
+.idea/
+.vs/
+.vscode/
 *.opensdf
 *.sdf
+*.sln
+*.suo
 *.VC.db
 *.VC.opendb
-*.dmp
 
-# Local release and evidence output
-Deliverables/
-*.zip
-
-# Logs and local IDE files
-*.log
-.vs/
-.idea/
-.vscode/
-
-# OS metadata
+# OS metadata and logs
 .DS_Store
 Thumbs.db
+*.log
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example

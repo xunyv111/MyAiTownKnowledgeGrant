@@ -6,7 +6,7 @@ Do not open a public issue for a vulnerability involving secret leakage, authori
 
 ## Scope
 
-The plugin is deployed server-side. The authority checks in `UKnowledgeGrantComponent`, `UNpcKnowledgeReceiverComponent`, `UKnowledgeResolverLibrary`, and the model guard are part of the trust boundary. A host that bypasses `SafeText` or ships plaintext secrets in client-cooked assets is outside the plugin's protection.
+The plugin is deployed server-side. The authority checks in `UArpgKnowledgeGrantAdapterComponent`, `UKnowledgeGrantComponent`, `UNpcKnowledgeReceiverComponent`, `UKnowledgeResolverLibrary`, the mechanical guard, and the semantic review coordinator are part of the trust boundary. `SafeText` is only an intermediate mechanical result. A production host that bypasses `FinalApprovedText`, accepts stale semantic responses, or ships plaintext secrets in client-cooked assets is outside the plugin's protection.
 
 ## Secrets
 

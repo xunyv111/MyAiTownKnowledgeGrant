@@ -148,6 +148,7 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
         Result.SafeText = PolicyText(Policy, ViewError);
         return Result;
     }
+    Result.ValidatedScopeFingerprint = KnowledgeView.ScopeFingerprint;
 
     TMap<FName, const FKnowledgeFact*> AllowedFacts;
     for (const FKnowledgeDocument& Document : KnowledgeView.AllowedDocuments)

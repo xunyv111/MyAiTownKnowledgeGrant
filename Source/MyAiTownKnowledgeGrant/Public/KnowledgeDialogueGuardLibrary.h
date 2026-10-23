@@ -75,13 +75,16 @@ struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeDialogueGuardResult
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") bool bOk = false;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") bool bBlocked = false;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") EKnowledgeDialogueGuardOutcome Outcome = EKnowledgeDialogueGuardOutcome::Invalid;
+    /** Binds this mechanical result to the exact dialogue view that produced it. */
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge") int64 ValidatedScopeFingerprint = 0;
+    /** Mechanically validated text. When semantic review is enabled, this is not the final outlet text. */
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") FString SafeText;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") FString Error;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") TArray<FName> AllowedClaimIds;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") TArray<FName> BlockedClaimIds;
 };
 
-/** The only supported post-generation gate. Raw model text must never bypass SafeText. */
+/** Mechanical post-generation gate. Raw model text must never bypass SafeText. */
 UCLASS()
 class MYAITOWNKNOWLEDGEGRANT_API UKnowledgeDialogueGuardLibrary : public UBlueprintFunctionLibrary
 {

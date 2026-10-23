@@ -1,9 +1,9 @@
 {
   "FileVersion": 3,
-  "Version": 2,
-  "VersionName": "0.2.1",
+  "Version": 4,
+  "VersionName": "0.4.0",
   "FriendlyName": "My AI Town Knowledge Grant",
-  "Description": "Server-authoritative, quest-gated knowledge grants for AI NPC dialogue.",
+  "Description": "Local-BYOK AI NPC roleplay, server-authoritative ARPG knowledge grants, and fail-closed semantic review.",
   "Category": "AI",
   "CreatedBy": "xunyv",
   "CanContainContent": true,

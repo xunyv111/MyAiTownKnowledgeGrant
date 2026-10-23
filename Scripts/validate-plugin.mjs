@@ -19,6 +19,14 @@ const required = [
   "Source/MyAiTownKnowledgeGrant/Public/KnowledgeModelAdapterLibrary.h",
   "Source/MyAiTownKnowledgeGrant/Public/KnowledgeContextTags.h",
   "Source/MyAiTownKnowledgeGrant/Public/KnowledgeContextCollectorComponent.h",
+  "Source/MyAiTownKnowledgeGrant/Public/KnowledgeSemanticReviewComponent.h",
+  "Source/MyAiTownKnowledgeGrant/Public/ArpgKnowledgeGrantAdapterComponent.h",
+  "Source/MyAiTownKnowledgeGrant/Public/AiNpcProviderTypes.h",
+  "Source/MyAiTownKnowledgeGrant/Public/AiNpcProviderSettings.h",
+  "Source/MyAiTownKnowledgeGrant/Public/AiNpcProviderSubsystem.h",
+  "Source/MyAiTownKnowledgeGrant/Public/AiNpcProviderSettingsWidget.h",
+  "Source/MyAiTownKnowledgeGrant/Public/AiNpcProviderUiLibrary.h",
+  "Source/MyAiTownKnowledgeGrant/Public/AiNpcDialogueComponent.h",
   "Source/MyAiTownKnowledgeGrant/Public/KnowledgeResolverLibrary.h",
   "Source/MyAiTownKnowledgeGrant/Public/KnowledgeReaction.h",
   "Source/MyAiTownKnowledgeGrant/Public/NpcKnowledgeReceiverComponent.h",
@@ -28,6 +36,13 @@ const required = [
   "Source/MyAiTownKnowledgeGrant/Private/KnowledgeModelAdapterLibrary.cpp",
   "Source/MyAiTownKnowledgeGrant/Private/KnowledgeContextTags.cpp",
   "Source/MyAiTownKnowledgeGrant/Private/KnowledgeContextCollectorComponent.cpp",
+  "Source/MyAiTownKnowledgeGrant/Private/KnowledgeSemanticReviewComponent.cpp",
+  "Source/MyAiTownKnowledgeGrant/Private/ArpgKnowledgeGrantAdapterComponent.cpp",
+  "Source/MyAiTownKnowledgeGrant/Private/AiNpcProviderSettings.cpp",
+  "Source/MyAiTownKnowledgeGrant/Private/AiNpcProviderSubsystem.cpp",
+  "Source/MyAiTownKnowledgeGrant/Private/AiNpcProviderSettingsWidget.cpp",
+  "Source/MyAiTownKnowledgeGrant/Private/AiNpcProviderUiLibrary.cpp",
+  "Source/MyAiTownKnowledgeGrant/Private/AiNpcDialogueComponent.cpp",
   "Source/MyAiTownKnowledgeGrant/Private/KnowledgeResolverLibrary.cpp",
   "Source/MyAiTownKnowledgeGrant/Private/KnowledgeReaction.cpp",
   "Source/MyAiTownKnowledgeGrant/Private/NpcKnowledgeReceiverComponent.cpp",
@@ -45,7 +60,7 @@ try {
   }
   if (descriptor.Modules?.[0]?.Type !== "Runtime") errors.push("plugin module must be Runtime");
   if (descriptor.CreatedBy !== "xunyv") errors.push("plugin descriptor author must be xunyv");
-  if (descriptor.Version !== 2 || descriptor.VersionName !== "0.2.1") errors.push("plugin descriptor must be version 0.2.1");
+  if (descriptor.Version !== 4 || descriptor.VersionName !== "0.4.0") errors.push("plugin descriptor must be version 0.4.0");
 } catch (error) {
   errors.push(`plugin descriptor is invalid JSON: ${error.message}`);
 }
@@ -65,10 +80,10 @@ if (fs.existsSync(path.join(root, "NOTICE"))) {
 const buildSource = "Source/MyAiTownKnowledgeGrant/MyAiTownKnowledgeGrant.Build.cs";
 if (fs.existsSync(path.join(root, buildSource))) {
   const build = read(buildSource);
-  for (const dependency of ["Core", "CoreUObject", "Engine", "GameplayTags", "Json"]) {
+  for (const dependency of ["Core", "CoreUObject", "Engine", "GameplayTags", "DeveloperSettings", "UMG", "HTTP", "Json", "Slate", "SlateCore"]) {
     if (!build.includes(`"${dependency}"`)) errors.push(`missing build dependency: ${dependency}`);
   }
-  for (const forbidden of ["OpenAI", "HTTP", "SQLite", "AIModule"]) {
+  for (const forbidden of ["SQLite", "AIModule"]) {
     if (build.includes(`"${forbidden}"`)) errors.push(`first version contains forbidden dependency: ${forbidden}`);
   }
 }
@@ -103,6 +118,44 @@ if (fs.existsSync(path.join(root, grantComponentSource))) {
   }
 }
 
+const arpgAdapterSource = "Source/MyAiTownKnowledgeGrant/Private/ArpgKnowledgeGrantAdapterComponent.cpp";
+if (fs.existsSync(path.join(root, arpgAdapterSource))) {
+  const adapter = read(arpgAdapterSource);
+  for (const marker of ["ResolveCompletedQuest", "arpg_registry_pack_mismatch", "debug_quest_event_rejected", "quest_not_completed", "stable_player_id_invalid", "quest_completion_revision_stale", "BuildGrantEventId", "OnGrantAudited"]) {
+    if (!adapter.includes(marker)) errors.push(`ARPG adapter is missing invariant: ${marker}`);
+  }
+}
+
+const semanticReviewSource = "Source/MyAiTownKnowledgeGrant/Private/KnowledgeSemanticReviewComponent.cpp";
+if (fs.existsSync(path.join(root, semanticReviewSource))) {
+  const semantic = read(semanticReviewSource);
+  for (const marker of ["BeginSemanticReview", "CompleteSemanticReview", "ValidatedScopeFingerprint", "semantic_review_timeout", "semantic_review_coverage_invalid", "ValidateDialogueKnowledgeView", "FinalApprovedText", "OnSemanticReviewRequested", "OnSemanticReviewCompleted"]) {
+    if (!semantic.includes(marker)) errors.push(`semantic review coordinator is missing invariant: ${marker}`);
+  }
+  for (const forbidden of ["OpenAI", "Anthropic", "Authorization: Bearer", "FHttpModule"]) {
+    if (semantic.includes(forbidden)) errors.push(`semantic review coordinator contains provider coupling: ${forbidden}`);
+  }
+}
+
+const providerSource = "Source/MyAiTownKnowledgeGrant/Private/AiNpcProviderSubsystem.cpp";
+if (fs.existsSync(path.join(root, providerSource))) {
+  const provider = read(providerSource);
+  for (const marker of ["provider_transmission_consent_required", "provider_https_required", "OpenNpcSession", "RequestNpcDialogue", "RequestSemanticReview", "Authorization", "BuildDialogueRequestBody", "ParseDialogueResponse", "BuildReviewRequestBody", "ParseReviewResponse"]) {
+    if (!provider.includes(marker)) errors.push(`AI NPC provider is missing invariant: ${marker}`);
+  }
+  for (const forbidden of ["SaveConfig", "GConfig", "ApiKey=" , "UE_LOG"]) {
+    if (provider.includes(forbidden)) errors.push(`AI NPC provider may persist or log credentials: ${forbidden}`);
+  }
+}
+
+const npcDialogueSource = "Source/MyAiTownKnowledgeGrant/Private/AiNpcDialogueComponent.cpp";
+if (fs.existsSync(path.join(root, npcDialogueSource))) {
+  const dialogue = read(npcDialogueSource);
+  for (const marker of ["OpenNpcSession", "BuildDialogueKnowledgeView", "GuardKnowledgeModelJsonResponseForCollectors", "BeginSemanticReview", "FinalApprovedText", "LocalTranscript"]) {
+    if (!dialogue.includes(marker)) errors.push(`AI NPC dialogue component is missing invariant: ${marker}`);
+  }
+}
+
 const resolverSource = "Source/MyAiTownKnowledgeGrant/Private/KnowledgeResolverLibrary.cpp";
 if (fs.existsSync(path.join(root, resolverSource))) {
   const resolver = read(resolverSource);
@@ -127,6 +180,12 @@ if (fs.existsSync(path.join(root, testSource))) {
   const tests = read(testSource);
   for (const marker of ["Locked documents never enter", "Another player remains locked", "Repeated completion is idempotent", "Grant event identifiers are normalized", "Reusing one grant event identifier for a different pack fails explicitly", "An invalid but ungranted candidate does not fail", "Knowledge survives save and restore", "A different quest cannot grant", "A registry-matched snapshot restores successfully", "Restore derives both unlock tags from registered packs", "A cross-version snapshot is rejected", "Forged snapshot tags are rejected instead of trusted", "A snapshot missing its prerequisite closure is rejected", "An unregistered snapshot pack is rejected", "A cyclic prerequisite registry is rejected during restore", "Every failed restore preserves the pre-existing granted pack", "A granted pack without grant history is rejected", "Grant history cannot refer to a pack outside the authorized state", "Restore advances revision even when the snapshot carries the current revision", "A pre-restore view is rejected", "A later domino cannot fall before its prerequisite", "Rejected future event leaks no future document", "Unsupported factual claim is blocked after generation", "Every model claim without evidence fails closed", "The same claim is allowed only after its evidence unlocks", "A proper-noun mismatch is blocked mechanically", "A protected proper noun omitted from claim metadata is blocked", "A shorter protected entity occurring outside its declared longer token is blocked", "A numeric mismatch is blocked mechanically", "A numeric sign reversal is blocked", "A decimal is treated as one numeric token", "A host-declared Chinese written number is accepted", "The positive word bucuo is not treated", "A negation mismatch is blocked mechanically", "Malformed JSON fails closed", "Unknown rawText never reaches SafeText", "Empty FactId evidence is rejected by the adapter contract", "Duplicate FactId evidence is rejected", "A protected entity omitted from parsed metadata still fails the fact guard", "Overlong claim text is rejected before the fact guard", "Overlapping scene sources are unioned", "Updating one scene source replaces its previous tags", "A stale interaction end cannot clear the newer target", "Explicit proper-noun context is added", "Reset removes every context source", "North gate marker activates its information library", "Output guard blocks a fact from an inactive scene library", "A view from the previous scene is rejected", "Matching scene marker never grants an unobserved future fact", "All-or-nothing policy removes otherwise valid claims", "A view is rejected after player knowledge revision changes", "A view with a modified consistency checksum is rejected"]) {
     if (!tests.includes(marker)) errors.push(`automation coverage marker missing: ${marker}`);
+  }
+  for (const marker of ["A mechanical result from another dialogue view cannot enter semantic review", "A provider-neutral semantic request is created", "A complete external approval releases FinalApprovedText", "An API response is rejected after authorization changes while in flight", "A semantic rejection fails closed to the trusted policy text"]) {
+    if (!tests.includes(marker)) errors.push(`semantic review coverage marker missing: ${marker}`);
+  }
+  for (const marker of ["Remote transmission requires explicit player consent", "Plain HTTP to a remote vendor is rejected", "No API key field exists in the serialized body", "The provider request is deterministic and contains only current-turn inputs", "The reviewer response accepts only the structured decision contract"]) {
+    if (!tests.includes(marker)) errors.push(`AI NPC provider coverage marker missing: ${marker}`);
   }
 }
 
@@ -159,5 +218,5 @@ if (errors.length) {
 }
 
 console.log(`Plugin structure valid: ${root}`);
-console.log("Scope: descriptor, dependency boundary, authority/idempotence/replication markers, registry-validated snapshots, context collector, unified knowledge view, strict JSON adapter, fact guard, and test coverage markers.");
+console.log("Scope: local-BYOK AI NPC provider, isolated NPC sessions, ARPG quest adapter, strict JSON and fact guards, semantic review, and test coverage markers.");
 console.log("This does not replace UnrealHeaderTool, C++ compilation, Automation Test, replication PIE, or real-server acceptance.");

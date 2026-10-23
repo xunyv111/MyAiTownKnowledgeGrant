@@ -10,7 +10,9 @@ class UKnowledgeContextCollectorComponent;
 
 /**
  * Strict JSON entrance for untrusted model output. It never returns parsed raw
- * claims to Blueprint: success and failure both leave through SafeText only.
+ * claims to Blueprint: success and failure both leave through mechanically
+ * validated SafeText. Free-form dialogue may require semantic review before
+ * any formal outlet consumes text.
  */
 UCLASS()
 class MYAITOWNKNOWLEDGEGRANT_API UKnowledgeModelAdapterLibrary : public UBlueprintFunctionLibrary
