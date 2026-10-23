@@ -39,6 +39,7 @@ updated: 2026-10-23
 
 - 已新增 `Docs/OPERATION_MINDMAP.md` 与 `Docs/images/operation-principle-mindmap.svg`，用一张思维导图串联安装、Authority 授予、多米诺前置、语境输入门、模型候选、双重输出门、NPC 反应和 Schema v3 存档边界。
 - 已新增 `Docs/BEGINNER_GUIDE.md`，从安装工具链、Gameplay Tags、Knowledge Pack 和守卫策略资产开始，逐步覆盖玩家/NPC 组件、Blueprint 授予、Context Collector、Provider、严格 JSON、人格反应、Schema v3 存档、多人边界、首条验收流程和错误排查；README 已添加新手入口。
+- 开源许可已切换为 MIT；README 的导图改用 1600×1040 PNG 直接展示，并保留 SVG 原图供缩放查看。
 - 0.3.0 隔离 `RunUAT BuildPlugin`：UHT WarningsAsErrors、Editor Development、Game Development、Game Shipping 全部成功。
 - 插件 Automation：11/11，0 警告、0 失败；新增 `Runtime.SemanticReviewContract` 通过。
 - 隔离宿主增量编译成功；新增 `KnowledgeGrantHost.ARPG.AdapterFlow` 通过，覆盖任务未完成拒绝、固定注册表授予、玩家 Owner 绑定、幂等、修订乱序拒绝、调试事件拒绝和审计记录。

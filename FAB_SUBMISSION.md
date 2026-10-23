@@ -9,11 +9,11 @@ Status: **not submitted**. The 0.3.0 package is an ARPG code-plugin integration 
 - Package type: code plugin with source and precompiled Editor/Game objects
 - Plugin version: 0.3.0
 - Snapshot schema: 3
-- License: Apache License 2.0
+- License: MIT License
 
 ## Required before submission
 
-1. Confirm Fab license terms for an Apache-2.0 code plugin. The GitHub license and the Fab listing license are separate decisions.
+1. Confirm Fab license terms for an MIT-licensed code plugin. The GitHub license and the Fab listing license are separate decisions.
 2. Decide whether `CanContainContent` stays `true`. The plugin currently ships no content assets; either set it to `false` or add a real sample map/data asset.
 3. Add the engine version metadata expected by Fab and verify the exact supported-version range.
 4. Prepare store media: icon, thumbnail, screenshots, and a short feature video. The current acceptance screenshots are diagnostic HUD captures and are not store media.

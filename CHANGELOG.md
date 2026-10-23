@@ -46,7 +46,7 @@
 ## Open-source release metadata
 
 - Declared xunyv as author and copyright holder.
-- Added Apache License 2.0, NOTICE, and public-repository ignore rules.
+- Published the project under the MIT License, with an informational NOTICE and public-repository ignore rules.
 
 ## 0.1.0 - 2026-10-22
 

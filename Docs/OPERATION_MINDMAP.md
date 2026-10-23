@@ -2,7 +2,9 @@
 
 这张图把插件从“装进项目”到“NPC 最终说出一句可用台词”的完整链路放在同一张画布上。阅读顺序是：先看中心目标，再沿编号 `1 → 8` 展开；底部是一次完整运行时流程。
 
-![My AI Town Knowledge Grant 操作原理思维导图](images/operation-principle-mindmap.svg)
+![My AI Town Knowledge Grant 操作原理思维导图](images/operation-principle-mindmap.png)
+
+[查看可缩放的 SVG 原图](images/operation-principle-mindmap.svg)
 
 ## 最短使用路径
 

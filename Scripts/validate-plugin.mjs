@@ -67,8 +67,8 @@ try {
 
 if (fs.existsSync(path.join(root, "LICENSE"))) {
   const license = read("LICENSE");
-  if (!license.includes("Apache License") || !license.includes("Version 2.0, January 2004")) {
-    errors.push("LICENSE must contain the Apache License 2.0 text");
+  if (!license.includes("MIT License") || !license.includes("Permission is hereby granted, free of charge") || !license.includes("Copyright (c) 2026 xunyv")) {
+    errors.push("LICENSE must contain the MIT License text and xunyv copyright notice");
   }
 }
 

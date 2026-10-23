@@ -1,7 +1,7 @@
 ﻿# My AI Town Knowledge Grant
 
 **作者与版权人：xunyv**  
-**许可证：Apache License 2.0**
+**许可证：MIT License**
 
 专用于单机或联机 ARPG 的 Unreal Engine Runtime 插件。0.4.0 增加插件原生的玩家自带密钥（BYOK）AI-NPC 角色扮演入口：玩家可在运行时面板连接兼容 OpenAI Chat Completions 请求与响应格式的服务，每个挂载 `AI NPC Dialogue Component` 的 NPC 自动建立独立本地会话。API Key、Session 状态和最近的已批准对话只在当前游戏进程中使用，不由插件持久化；玩家明确同意后，角色说明、当轮授权事实和玩家当前发言会发送给对话服务，机械校验后的候选文本与允许事实会发送给配置的语义审查服务。自由生成的模型候选必须依次通过严格 JSON、机械事实守卫和语义审查，正式出口只消费 `FinalApprovedText`。
 
@@ -20,11 +20,15 @@
 
 核心知识授权、NPC 人格反应和机械守卫不要求 API Key。你可以先完成本地两骨牌流程，再接入 AI Provider 和语义审查服务。
 
+[![My AI Town Knowledge Grant 操作原理思维导图](Docs/images/operation-principle-mindmap.png)](Docs/OPERATION_MINDMAP.md)
+
+> 如果图片未加载，请直接打开[操作原理思维导图页面](Docs/OPERATION_MINDMAP.md)。
+
 ## 开源许可
 
-本项目由 **xunyv** 以 [Apache License 2.0](LICENSE) 完全开源。允许个人和组织免费使用、复制、修改、分发及用于商业项目；再分发时须保留许可证与版权声明。商标、第三方资产及 Unreal Engine 本身不因本许可证获得授权，仍分别受其权利人的条款约束。
+本项目由 **xunyv** 以 [MIT License](LICENSE) 开源。允许个人和组织免费使用、复制、修改、合并、发布、分发、再许可及销售软件副本；分发软件或其重要部分时，必须保留原版权声明与 MIT 许可声明。商标、第三方资产及 Unreal Engine 本身不因本许可证获得授权，仍分别受其权利人的条款约束。
 
-公开仓库应保留 `LICENSE` 与 `NOTICE`。欢迎提交 Issue 与 Pull Request；安全问题请避免公开披露敏感利用细节，并通过仓库维护者提供的私密联系方式报告。
+公开仓库必须保留 `LICENSE`。`NOTICE` 仅提供项目归属和 Unreal Engine 商标说明，并非 MIT 的附加许可条件。欢迎提交 Issue 与 Pull Request；安全问题请避免公开披露敏感利用细节，并通过仓库维护者提供的私密联系方式报告。
 
 ## 安装
 
@@ -45,12 +49,6 @@
 玩家 BYOK 适用于单机游戏和本地 listen-server。正式多人专用服务器不应索取、复制或信任客户端 API Key；项目应在服务器进程配置自有 Provider，并由服务器承担费用、提示词、审计和隐私告知。远程地址必须使用 HTTPS；只有显式允许的 loopback 地址可以使用 HTTP，以便连接本机模型服务。
 
 完整组件图、单轮数据流、失败策略与本地/云端边界见 [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md)。
-
-## 操作原理思维导图
-
-从安装、服务器权威授予、多米诺知识链、实时语境，到模型机械守卫、独立语义审查、NPC 人格反应和存档边界，可先看 [操作原理思维导图](Docs/OPERATION_MINDMAP.md)。
-
-[![My AI Town Knowledge Grant 操作原理思维导图](Docs/images/operation-principle-mindmap.svg)](Docs/OPERATION_MINDMAP.md)
 
 ## 蓝图接入
 
