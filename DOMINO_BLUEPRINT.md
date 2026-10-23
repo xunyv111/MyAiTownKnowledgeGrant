@@ -207,4 +207,4 @@ flowchart TD
 | 直接显示模型文本 | 模型候选仍不可信 | 只显示 `FinalApprovedText` |
 | 把 NPC 反应记忆当知识状态 | Receiver 只记录人格反应 | 玩家授权仍以 Knowledge Grant Component 为准 |
 
-继续操作请阅读[新手从零接入教程](BEGINNER_GUIDE.md)；完整组件边界见[架构说明](ARCHITECTURE.md)。
+继续操作请阅读[新手从零接入教程](Docs/BEGINNER_GUIDE.md)；完整组件边界见[架构说明](Docs/ARCHITECTURE.md)。

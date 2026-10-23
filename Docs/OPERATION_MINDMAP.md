@@ -55,5 +55,5 @@
 
 第一次接入请从 [`BEGINNER_GUIDE.md`](BEGINNER_GUIDE.md) 开始。完整安装检查见 [`../INSTALL.md`](../INSTALL.md)，AI Provider 接入见 [`AI_NPC_PROVIDER.md`](AI_NPC_PROVIDER.md)，ARPG 任务适配见 [`ARPG_INTEGRATION.md`](ARPG_INTEGRATION.md)。
 
-如果希望按 Unreal 蓝图式节点逐段查看，请继续阅读[多米诺知识系统蓝图](DOMINO_BLUEPRINT.md)。
+如果希望按 Unreal 蓝图式节点逐段查看，请继续阅读[多米诺知识系统蓝图](../DOMINO_BLUEPRINT.md)。
 

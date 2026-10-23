@@ -10,12 +10,14 @@
 → 机械事实守卫 → 独立语义审查 → FinalApprovedText
 ```
 
+**新手从这里开始：[多米诺知识系统蓝图](DOMINO_BLUEPRINT.md)** —— 四张可缩放流程图，一次看清服务器授予、多米诺前置链、AI 对话双重输出门、NPC 反应与存档的完整链路与失败分支。
+
 ## 新手入口
 
 第一次使用时，按下面的顺序阅读：
 
 1. [操作原理思维导图](Docs/OPERATION_MINDMAP.md)：先看清任务授权、多米诺知识链、语境输入门和安全输出门之间的关系。
-2. [多米诺知识系统蓝图](Docs/DOMINO_BLUEPRINT.md)：用四张可缩放流程图查看服务器授予、前置链、AI 双重输出门、NPC 反应和存档。
+2. [多米诺知识系统蓝图](DOMINO_BLUEPRINT.md)：用四张可缩放流程图查看服务器授予、前置链、AI 双重输出门、NPC 反应和存档。
 3. [新手从零接入教程](Docs/BEGINNER_GUIDE.md)：跟着编辑器操作创建 Data Asset、挂载组件、连接 Blueprint、配置 AI Provider 并排查错误。
 4. [安装与接入检查单](INSTALL.md)：接入目标项目和发布前逐项核对。
 
