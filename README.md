@@ -10,6 +10,16 @@
 → 机械事实守卫 → 独立语义审查 → FinalApprovedText
 ```
 
+## 新手入口
+
+第一次使用时，按下面的顺序阅读：
+
+1. [操作原理思维导图](Docs/OPERATION_MINDMAP.md)：先看清任务授权、多米诺知识链、语境输入门和安全输出门之间的关系。
+2. [新手从零接入教程](Docs/BEGINNER_GUIDE.md)：跟着编辑器操作创建 Data Asset、挂载组件、连接 Blueprint、配置 AI Provider 并排查错误。
+3. [安装与接入检查单](INSTALL.md)：接入目标项目和发布前逐项核对。
+
+核心知识授权、NPC 人格反应和机械守卫不要求 API Key。你可以先完成本地两骨牌流程，再接入 AI Provider 和语义审查服务。
+
 ## 开源许可
 
 本项目由 **xunyv** 以 [Apache License 2.0](LICENSE) 完全开源。允许个人和组织免费使用、复制、修改、分发及用于商业项目；再分发时须保留许可证与版权声明。商标、第三方资产及 Unreal Engine 本身不因本许可证获得授权，仍分别受其权利人的条款约束。
@@ -35,6 +45,12 @@
 玩家 BYOK 适用于单机游戏和本地 listen-server。正式多人专用服务器不应索取、复制或信任客户端 API Key；项目应在服务器进程配置自有 Provider，并由服务器承担费用、提示词、审计和隐私告知。远程地址必须使用 HTTPS；只有显式允许的 loopback 地址可以使用 HTTP，以便连接本机模型服务。
 
 完整组件图、单轮数据流、失败策略与本地/云端边界见 [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md)。
+
+## 操作原理思维导图
+
+从安装、服务器权威授予、多米诺知识链、实时语境，到模型机械守卫、独立语义审查、NPC 人格反应和存档边界，可先看 [操作原理思维导图](Docs/OPERATION_MINDMAP.md)。
+
+[![My AI Town Knowledge Grant 操作原理思维导图](Docs/images/operation-principle-mindmap.svg)](Docs/OPERATION_MINDMAP.md)
 
 ## 蓝图接入
 

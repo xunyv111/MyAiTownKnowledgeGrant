@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040" role="img" aria-labelledby="title desc">
+  <title id="title">My AI Town Knowledge Grant 操作原理思维导图</title>
+  <desc id="desc">展示插件安装、服务器权威授予、多米诺知识链、语境筛选、模型生成、机械守卫、语义审查、NPC 人格反应、存档和网络边界。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#101b31"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d5dfc"/>
+      <stop offset="1" stop-color="#4f46e5"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7dd3fc"/>
+    </marker>
+    <style>
+      .zh { font-family: "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif; }
+      .mono { font-family: Consolas, "SFMono-Regular", monospace; }
+      .branch { fill: none; stroke-width: 4; stroke-linecap: round; opacity: .85; }
+      .node { filter: url(#shadow); }
+      .node-title { fill: #f8fafc; font-size: 24px; font-weight: 700; }
+      .node-sub { fill: #cbd5e1; font-size: 16px; }
+      .node-code { fill: #93c5fd; font-size: 14px; }
+      .step { fill: #0f172a; stroke: #334155; stroke-width: 1.5; }
+      .step-title { fill: #f8fafc; font-size: 15px; font-weight: 700; }
+      .step-sub { fill: #94a3b8; font-size: 12px; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1040" fill="url(#bg)"/>
+  <circle cx="800" cy="455" r="330" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 14"/>
+  <circle cx="800" cy="455" r="225" fill="none" stroke="#26344d" stroke-width="1" stroke-dasharray="3 12"/>
+
+  <text x="70" y="62" class="zh" fill="#f8fafc" font-size="34" font-weight="700">操作原理思维导图</text>
+  <text x="70" y="96" class="zh" fill="#94a3b8" font-size="17">从任务完成到 NPC 安全输出：授权决定能知道什么，语境决定此刻能用什么，双重守卫决定最终能说什么</text>
+
+  <!-- Connectors -->
+  <path d="M680 395 C560 330 500 235 430 208" class="branch" stroke="#38bdf8"/>
+  <path d="M670 448 C535 440 470 405 390 405" class="branch" stroke="#f59e0b"/>
+  <path d="M680 505 C555 565 500 640 430 675" class="branch" stroke="#fb7185"/>
+  <path d="M720 565 C645 675 600 745 530 790" class="branch" stroke="#a78bfa"/>
+  <path d="M920 395 C1040 330 1100 235 1170 208" class="branch" stroke="#34d399"/>
+  <path d="M930 448 C1065 440 1130 405 1210 405" class="branch" stroke="#facc15"/>
+  <path d="M920 505 C1045 565 1100 640 1170 675" class="branch" stroke="#f97316"/>
+  <path d="M880 565 C955 675 1000 745 1070 790" class="branch" stroke="#60a5fa"/>
+
+  <!-- Center -->
+  <g class="node">
+    <rect x="650" y="350" width="300" height="220" rx="30" fill="url(#core)" stroke="#a5b4fc" stroke-width="2"/>
+    <text x="800" y="405" class="zh" fill="#ffffff" font-size="20" font-weight="700" text-anchor="middle">My AI Town</text>
+    <text x="800" y="438" class="zh" fill="#ffffff" font-size="25" font-weight="700" text-anchor="middle">Knowledge Grant</text>
+    <line x1="695" y1="462" x2="905" y2="462" stroke="#c7d2fe" opacity=".6"/>
+    <text x="800" y="495" class="zh" fill="#eef2ff" font-size="17" text-anchor="middle">玩家授权 × 实时语境</text>
+    <text x="800" y="525" class="zh" fill="#eef2ff" font-size="17" text-anchor="middle">机械守卫 × 语义审查</text>
+  </g>
+
+  <!-- Left 1 -->
+  <g class="node">
+    <rect x="90" y="145" width="340" height="130" rx="20" fill="#10263a" stroke="#38bdf8" stroke-width="2"/>
+    <circle cx="120" cy="177" r="17" fill="#38bdf8"/><text x="120" y="183" class="zh" fill="#07111f" font-size="15" font-weight="700" text-anchor="middle">1</text>
+    <text x="150" y="185" class="zh node-title">安装与组件</text>
+    <text x="115" y="220" class="zh node-sub">插件放入 Plugins；玩家持有授权组件</text>
+    <text x="115" y="249" class="mono node-code">KnowledgeGrantComponent</text>
+  </g>
+
+  <!-- Left 2 -->
+  <g class="node">
+    <rect x="50" y="340" width="340" height="130" rx="20" fill="#342513" stroke="#f59e0b" stroke-width="2"/>
+    <circle cx="80" cy="372" r="17" fill="#f59e0b"/><text x="80" y="378" class="zh" fill="#1f1506" font-size="15" font-weight="700" text-anchor="middle">2</text>
+    <text x="110" y="380" class="zh node-title">服务器权威授予</text>
+    <text x="75" y="415" class="zh node-sub">真实任务或事件完成后，Authority 写入</text>
+    <text x="75" y="444" class="mono node-code">Quest / WorldEvent → Grant</text>
+  </g>
+
+  <!-- Left 3 -->
+  <g class="node">
+    <rect x="90" y="610" width="340" height="145" rx="20" fill="#351824" stroke="#fb7185" stroke-width="2"/>
+    <circle cx="120" cy="642" r="17" fill="#fb7185"/><text x="120" y="648" class="zh" fill="#2a0b13" font-size="15" font-weight="700" text-anchor="middle">3</text>
+    <text x="150" y="650" class="zh node-title">多米诺知识链</text>
+    <text x="115" y="685" class="zh node-sub">每个包只装已发生事实，前置逐块解锁</text>
+    <text x="115" y="714" class="mono node-code">RequiredPackIds · FactId</text>
+    <text x="115" y="738" class="zh" fill="#fda4af" font-size="13">乱序授予失败关闭</text>
+  </g>
+
+  <!-- Left 4 -->
+  <g class="node">
+    <rect x="300" y="755" width="350" height="130" rx="20" fill="#251c3d" stroke="#a78bfa" stroke-width="2"/>
+    <circle cx="330" cy="787" r="17" fill="#a78bfa"/><text x="330" y="793" class="zh" fill="#170f2b" font-size="15" font-weight="700" text-anchor="middle">4</text>
+    <text x="360" y="795" class="zh node-title">存档与网络隔离</text>
+    <text x="325" y="830" class="zh node-sub">Schema v3；Registry、闭包与世代校验</text>
+    <text x="325" y="859" class="mono node-code">Snapshot · Revision · Epoch</text>
+  </g>
+
+  <!-- Right 5 -->
+  <g class="node">
+    <rect x="1170" y="145" width="340" height="130" rx="20" fill="#102d27" stroke="#34d399" stroke-width="2"/>
+    <circle cx="1200" cy="177" r="17" fill="#34d399"/><text x="1200" y="183" class="zh" fill="#06231b" font-size="15" font-weight="700" text-anchor="middle">5</text>
+    <text x="1230" y="185" class="zh node-title">实时语境输入门</text>
+    <text x="1195" y="220" class="zh node-sub">场景、交互对象、专名与授权求交集</text>
+    <text x="1195" y="249" class="mono node-code">BuildDialogueKnowledgeView</text>
+  </g>
+
+  <!-- Right 6 -->
+  <g class="node">
+    <rect x="1210" y="340" width="340" height="130" rx="20" fill="#362f12" stroke="#facc15" stroke-width="2"/>
+    <circle cx="1240" cy="372" r="17" fill="#facc15"/><text x="1240" y="378" class="zh" fill="#241d04" font-size="15" font-weight="700" text-anchor="middle">6</text>
+    <text x="1270" y="380" class="zh node-title">不可信模型候选</text>
+    <text x="1235" y="415" class="zh node-sub">只接收严格 JSON，并引用允许的 FactId</text>
+    <text x="1235" y="444" class="mono node-code">claims[] · evidenceFactIds[]</text>
+  </g>
+
+  <!-- Right 7 -->
+  <g class="node">
+    <rect x="1170" y="610" width="340" height="145" rx="20" fill="#3a2013" stroke="#f97316" stroke-width="2"/>
+    <circle cx="1200" cy="642" r="17" fill="#f97316"/><text x="1200" y="648" class="zh" fill="#2b1205" font-size="15" font-weight="700" text-anchor="middle">7</text>
+    <text x="1230" y="650" class="zh node-title">双重输出门</text>
+    <text x="1195" y="685" class="zh node-sub">机械证据校验 → 独立语义审查</text>
+    <text x="1195" y="714" class="mono node-code">Guard → Semantic Review</text>
+    <text x="1195" y="738" class="zh" fill="#fdba74" font-size="13">唯一正式出口：FinalApprovedText</text>
+  </g>
+
+  <!-- Right 8 -->
+  <g class="node">
+    <rect x="950" y="755" width="350" height="130" rx="20" fill="#14294a" stroke="#60a5fa" stroke-width="2"/>
+    <circle cx="980" cy="787" r="17" fill="#60a5fa"/><text x="980" y="793" class="zh" fill="#09172d" font-size="15" font-weight="700" text-anchor="middle">8</text>
+    <text x="1010" y="795" class="zh node-title">NPC 人格反应</text>
+    <text x="975" y="830" class="zh node-sub">延迟接收、按受众幂等；不授予知识</text>
+    <text x="975" y="859" class="mono node-code">AudienceId × ReceiptEventId</text>
+  </g>
+
+  <!-- Runtime flow -->
+  <text x="70" y="927" class="zh" fill="#e2e8f0" font-size="20" font-weight="700">一次完整运行时链路</text>
+  <g>
+    <rect x="70" y="950" width="170" height="62" rx="12" class="step"/>
+    <text x="155" y="976" class="zh step-title" text-anchor="middle">任务完成</text>
+    <text x="155" y="996" class="zh step-sub" text-anchor="middle">Authority 确认</text>
+
+    <rect x="275" y="950" width="170" height="62" rx="12" class="step"/>
+    <text x="360" y="976" class="zh step-title" text-anchor="middle">授予知识包</text>
+    <text x="360" y="996" class="zh step-sub" text-anchor="middle">前置与幂等检查</text>
+
+    <rect x="480" y="950" width="170" height="62" rx="12" class="step"/>
+    <text x="565" y="976" class="zh step-title" text-anchor="middle">构建知识视图</text>
+    <text x="565" y="996" class="zh step-sub" text-anchor="middle">授权 ∩ 语境</text>
+
+    <rect x="685" y="950" width="170" height="62" rx="12" class="step"/>
+    <text x="770" y="976" class="zh step-title" text-anchor="middle">模型严格 JSON</text>
+    <text x="770" y="996" class="zh step-sub" text-anchor="middle">候选仍不可信</text>
+
+    <rect x="890" y="950" width="170" height="62" rx="12" class="step"/>
+    <text x="975" y="976" class="zh step-title" text-anchor="middle">机械 Guard</text>
+    <text x="975" y="996" class="zh step-sub" text-anchor="middle">事实与元数据</text>
+
+    <rect x="1095" y="950" width="170" height="62" rx="12" class="step"/>
+    <text x="1180" y="976" class="zh step-title" text-anchor="middle">语义审查</text>
+    <text x="1180" y="996" class="zh step-sub" text-anchor="middle">批准 / 拦截 / 错误</text>
+
+    <rect x="1300" y="950" width="230" height="62" rx="12" fill="#123426" stroke="#34d399" stroke-width="2"/>
+    <text x="1415" y="976" class="zh step-title" text-anchor="middle">FinalApprovedText</text>
+    <text x="1415" y="996" class="zh step-sub" text-anchor="middle">字幕 · 语音 · 行为 · 日志</text>
+
+    <line x1="242" y1="981" x2="267" y2="981" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="447" y1="981" x2="472" y2="981" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="652" y1="981" x2="677" y2="981" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="857" y1="981" x2="882" y2="981" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="1062" y1="981" x2="1087" y2="981" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="1267" y1="981" x2="1292" y2="981" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+</svg>
+
