@@ -15,8 +15,9 @@
 第一次使用时，按下面的顺序阅读：
 
 1. [操作原理思维导图](Docs/OPERATION_MINDMAP.md)：先看清任务授权、多米诺知识链、语境输入门和安全输出门之间的关系。
-2. [新手从零接入教程](Docs/BEGINNER_GUIDE.md)：跟着编辑器操作创建 Data Asset、挂载组件、连接 Blueprint、配置 AI Provider 并排查错误。
-3. [安装与接入检查单](INSTALL.md)：接入目标项目和发布前逐项核对。
+2. [多米诺知识系统蓝图](Docs/DOMINO_BLUEPRINT.md)：用四张可缩放流程图查看服务器授予、前置链、AI 双重输出门、NPC 反应和存档。
+3. [新手从零接入教程](Docs/BEGINNER_GUIDE.md)：跟着编辑器操作创建 Data Asset、挂载组件、连接 Blueprint、配置 AI Provider 并排查错误。
+4. [安装与接入检查单](INSTALL.md)：接入目标项目和发布前逐项核对。
 
 核心知识授权、NPC 人格反应和机械守卫不要求 API Key。你可以先完成本地两骨牌流程，再接入 AI Provider 和语义审查服务。
 
