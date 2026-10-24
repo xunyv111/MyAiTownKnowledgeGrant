@@ -207,7 +207,10 @@ FKnowledgeGrantResult UKnowledgeGrantComponent::RestoreSnapshot(
 void UKnowledgeGrantComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(UKnowledgeGrantComponent, State);
+    // Owner-only: ProcessedGrants embeds stable player ids and quest progress,
+    // so other clients must never receive it. The server stays the single
+    // resolution authority for every dialogue view.
+    DOREPLIFETIME_CONDITION(UKnowledgeGrantComponent, State, COND_OwnerOnly);
 }
 
 void UKnowledgeGrantComponent::OnRep_State()

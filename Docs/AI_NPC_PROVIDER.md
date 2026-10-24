@@ -13,7 +13,7 @@
 - 模型名称；
 - API Key；
 - 是否同意向所选厂商发送当轮数据；
-- 语义审查是否复用同一厂商，或使用第二个厂商/模型。
+- 语义审查是否复用同一厂商，或使用第二个厂商/模型。项目默认开启 `bRequireIndependentSemanticReview`，强制审查通道与对话通道使用不同的 URL 或模型，面板会禁用“共用同一厂商”勾选；项目可在 Project Settings 中关闭该强制。
 
 点击 `Apply for this game session` 后，Key 从密码输入框移入 `AI NPC Provider Subsystem` 的进程内存，并立即清空输入框。插件不调用 `SaveConfig`、`GConfig` 或 SaveGame 保存 Key，也不会记录 Key。退出游戏或点击 `Clear credentials` 后凭据消失。
 

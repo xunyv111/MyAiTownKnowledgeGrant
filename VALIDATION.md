@@ -11,6 +11,12 @@
 
 保存关卡 `/Game/Maps/KnowledgeAcceptance` 的最近一次纯后台离屏验收来自 0.2.1：`UnrealEditor-Cmd -game -RenderOffscreen` 实际载入该关卡，移动持久化碰撞 Probe 穿过 North Gate Trigger 与 Bronze Bell 交互范围；8/8 检查通过。0.3.0 没有修改该关卡接线，但尚未重跑离屏截图，因此这项证据只作为既有回归基线，不冒充当前版本人工 Play。
 
+## 0.4.1 增量验证（2026-10-24）
+
+- 隔离 `RunUAT BuildPlugin`（ASCII 临时 HostProject）：`UnrealEditor Win64 Development`、`UnrealGame Win64 Development`、`UnrealGame Win64 Shipping` 全部通过，UHT 启用 WarningsAsErrors，AutomationTool 输出 `BUILD SUCCESSFUL`。
+- 插件 Automation 在最小宿主上重跑 12/12 通过，包括扩展后的 `Runtime.AiNpcProviderContract`：新增 loopback 前缀仿冒（`http://localhost.com`、`http://127.0.0.1.evil.tld`）、userinfo 伪装（`http://127.0.0.1@evil.tld`）、十进制 IP 拒绝，精确 loopback（`127.0.0.1:8080`、`localhost`、`[::1]:123`）放行，以及审查通道独立性（同 URL 同模型拒绝、换模型接受、清空凭据）用例。
+- 首次运行 `AiNpcProviderContract` 曾因测试直接 `NewObject<UAiNpcProviderSubsystem>()` 违反 `ClassWithin=GameInstance` 约束触发 ensure 失败；已改为在测试内创建 `UGameInstance` 外壳后复跑通过。
+
 ## 构建
 
 - 官方插件打包：`RunUAT BuildPlugin` 使用纯 ASCII 临时 HostProject，从隔离副本完成 `UnrealEditor Win64 Development`、`UnrealGame Win64 Development` 与 `UnrealGame Win64 Shipping`，UHT 均启用 `WarningsAsErrors`；AutomationTool 输出 `BUILD SUCCESSFUL`，退出码 0。

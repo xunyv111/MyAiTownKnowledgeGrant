@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
+#include "Engine/GameInstance.h"
 #include "GameFramework/Actor.h"
 #include "ArpgKnowledgeGrantAdapterComponent.h"
 #include "AiNpcProviderSubsystem.h"
@@ -1161,6 +1162,52 @@ bool FAiNpcProviderContractTest::RunTest(const FString& Parameters)
     Unsafe.ChatCompletionsUrl = TEXT("http://vendor.example/v1/chat/completions");
     TestFalse(TEXT("Plain HTTP to a remote vendor is rejected"),
         UAiNpcProviderSubsystem::ValidateConfiguration(Unsafe, Error));
+
+    FAiNpcProviderConfiguration Loopback = Configuration;
+    Loopback.bAllowInsecureLoopback = true;
+    Loopback.ChatCompletionsUrl = TEXT("http://localhost.com/v1/chat/completions");
+    TestFalse(TEXT("A public domain sharing the localhost prefix is not loopback"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
+    Loopback.ChatCompletionsUrl = TEXT("http://127.0.0.1.evil.tld/v1/chat/completions");
+    TestFalse(TEXT("A remote host sharing the 127.0.0.1 prefix is not loopback"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
+    Loopback.ChatCompletionsUrl = TEXT("http://127.0.0.1@evil.tld/v1/chat/completions");
+    TestFalse(TEXT("Userinfo cannot smuggle a loopback-looking host"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
+    Loopback.ChatCompletionsUrl = TEXT("http://2130706433/v1/chat/completions");
+    TestFalse(TEXT("A decimal loopback IP is not an accepted host form"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
+    Loopback.ChatCompletionsUrl = TEXT("http://127.0.0.1:8080/v1/chat/completions");
+    TestTrue(TEXT("An explicit loopback IPv4 with a port is allowed when enabled"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
+    Loopback.ChatCompletionsUrl = TEXT("http://localhost/v1/chat/completions");
+    TestTrue(TEXT("An exact localhost host is allowed when enabled"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
+    Loopback.ChatCompletionsUrl = TEXT("http://[::1]:123/v1/chat/completions");
+    TestTrue(TEXT("An exact IPv6 loopback with a port is allowed when enabled"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
+
+    UGameInstance* TestGameInstance = NewObject<UGameInstance>();
+    UAiNpcProviderSubsystem* ProviderGateway = NewObject<UAiNpcProviderSubsystem>(TestGameInstance);
+    TestTrue(TEXT("Configuring the dialogue channel succeeds"),
+        ProviderGateway->ConfigureProvider(
+            EAiNpcProviderChannel::DialogueGeneration, Configuration, TEXT("dialogue-key"), Error));
+    TestTrue(TEXT("The dialogue provider is ready"),
+        ProviderGateway->IsProviderReady(EAiNpcProviderChannel::DialogueGeneration));
+    TestFalse(TEXT("Reusing the dialogue URL and model for review is rejected by default"),
+        ProviderGateway->ConfigureProvider(
+            EAiNpcProviderChannel::SemanticReview, Configuration, TEXT("review-key"), Error));
+    TestEqual(TEXT("The independence failure is explicit"), Error,
+        FString(TEXT("review_provider_must_be_independent")));
+    FAiNpcProviderConfiguration IndependentReviewer = Configuration;
+    IndependentReviewer.Model = TEXT("reviewer-model");
+    TestTrue(TEXT("A reviewer with a different model is accepted"),
+        ProviderGateway->ConfigureProvider(
+            EAiNpcProviderChannel::SemanticReview, IndependentReviewer, TEXT("review-key"), Error));
+    ProviderGateway->ClearCredentials();
+    TestFalse(TEXT("Clearing credentials disables both channels"),
+        ProviderGateway->IsProviderReady(EAiNpcProviderChannel::DialogueGeneration)
+            || ProviderGateway->IsProviderReady(EAiNpcProviderChannel::SemanticReview));
 
     FAiNpcPersona Persona;
     Persona.NpcId = TEXT("npc.rowan");

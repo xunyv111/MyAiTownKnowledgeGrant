@@ -256,9 +256,9 @@ flowchart TD
 
 项目可从暂停菜单或 AI 设置页调用蓝图节点 `Show AI NPC Provider Settings`。插件会直接创建原生运行时面板，玩家在其中填写：厂商名称、完整 Chat Completions URL、模型名称和 API Key，并勾选传输同意。Key 仅在运行期间用于内存配置和请求的 Authorization Header，不写入 ini、SaveGame、Data Asset 或插件日志。点击 `Clear credentials` 后插件会清除 Subsystem 中的凭据并拒绝新的请求，但无法撤回已经发出的请求，也不承诺对引擎和系统底层内存执行安全擦除。
 
-编辑器的 `Project Settings → Plugins → AI NPC Roleplay` 只保存非敏感默认值和披露文本，不保存 Key。每个 NPC 挂一个 `AI NPC Dialogue Component`；组件在 `BeginPlay` 自动创建独立本地 Session，通过共享 Provider 网关发请求，避免为每名 NPC 复制密钥或 HTTP 服务。完整接入、隐私边界和蓝图步骤见 [Docs/AI_NPC_PROVIDER.md](Docs/AI_NPC_PROVIDER.md)。
+编辑器的 `Project Settings → Plugins → AI NPC Roleplay` 只保存非敏感默认值和披露文本，不保存 Key。默认开启 `bRequireIndependentSemanticReview`：语义审查通道与对话通道的 URL 和模型完全相同时配置会被拒绝（`review_provider_must_be_independent`），面板也会禁用“共用同一厂商”勾选，避免同一模型自审自批。每个 NPC 挂一个 `AI NPC Dialogue Component`；组件在 `BeginPlay` 自动创建独立本地 Session，通过共享 Provider 网关发请求，避免为每名 NPC 复制密钥或 HTTP 服务。完整接入、隐私边界和蓝图步骤见 [Docs/AI_NPC_PROVIDER.md](Docs/AI_NPC_PROVIDER.md)。
 
-玩家 BYOK 适用于单机游戏和本地 listen-server。正式多人专用服务器不应索取、复制或信任客户端 API Key；项目应在服务器进程配置自有 Provider，并由服务器承担费用、提示词、审计和隐私告知。远程地址必须使用 HTTPS；只有显式允许的 loopback 地址可以使用 HTTP，以便连接本机模型服务。
+玩家 BYOK 适用于单机游戏和本地 listen-server。正式多人专用服务器不应索取、复制或信任客户端 API Key；项目应在服务器进程配置自有 Provider，并由服务器承担费用、提示词、审计和隐私告知。远程地址必须使用 HTTPS；只有精确的 loopback 主机（`localhost`、`[::1]`、`127.0.0.0/8`）可以使用 HTTP，以便连接本机模型服务，形如 `http://localhost.com` 的前缀仿冒地址按远程处理并强制 HTTPS。
 
 完整组件图、单轮数据流、失败策略与本地/云端边界见 [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md)。
 
@@ -334,7 +334,7 @@ flowchart TD
 
 ## 存档与复制
 
-- 组件状态自动复制，但授予和恢复只能在 Authority 上执行。
+- 组件状态自动复制，但仅同步给拥有该组件的连接（`COND_OwnerOnly`）：其他客户端不会收到玩家的授权包与 `ProcessedGrants` 授予历史，任务进度和稳定玩家 ID 不随网络广播。授予和恢复只能在 Authority 上执行。
 - 存档时调用 `Create Snapshot`，传入项目当前的稳定 `Pack Registry Version`，再把返回结构写入 SaveGame 或后端。
 - 载入时在服务端调用 `Restore Snapshot`，同时传入当前注册的全部 `Knowledge Pack` 和期望的注册表版本。
 - 当前知识快照 Schema 为 v3。恢复会拒绝旧 Schema、注册表版本不匹配、未注册包、缺失前置闭包、循环前置、伪造 Tags、无对应事件历史的已授予包，以及指向未授权包的事件记录；授权 Tags 会根据注册包重新派生。

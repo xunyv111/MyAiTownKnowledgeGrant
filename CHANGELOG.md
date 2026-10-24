@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 - 2026-10-24
+
+- 安全:HTTP loopback 豁免从字符串前缀改为精确主机匹配,只接受 `localhost`、`[::1]` 与 `127.0.0.0/8`;`http://localhost.com`、`http://127.0.0.1.evil.tld`、`http://127.0.0.1@evil.tld`、十进制 IP 等仿冒地址一律按远程处理并强制 HTTPS,API Key 不再可能经此类地址明文外发。
+- 隐私:`Knowledge Grant Component` 的授权状态复制从 `COND_None` 收紧为 `COND_OwnerOnly`;`ProcessedGrants` 授予历史(内含稳定玩家 ID 与任务进度)不再广播给其他客户端,同时显著降低每次授予的复制流量。
+- 实现此前无效的 `bRequireIndependentSemanticReview`(默认开启):语义审查通道与对话通道的 URL 与模型完全相同时,`ConfigureProvider` 拒绝配置并返回 `review_provider_must_be_independent`(双向检查,配置顺序无法绕过);设置面板在强制独立时禁用并取消“共用同一厂商”勾选。
+- 自动化:`AiNpcProviderContract` 新增 loopback 前缀仿冒、userinfo 伪装、十进制 IP 拒绝与精确 loopback 放行用例,以及审查通道独立性(同 URL 同模型拒绝、换模型接受、清空凭据)用例。
+
 ## 0.4.0 - 2026-10-23
 
 - 新增插件原生运行时 BYOK 设置面板和 `Show AI NPC Provider Settings` 蓝图入口。

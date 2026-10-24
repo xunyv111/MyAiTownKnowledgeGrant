@@ -17,6 +17,7 @@ TSharedRef<SWidget> UAiNpcProviderSettingsWidget::RebuildWidget()
     const FText Disclosure = Defaults ? Defaults->PlayerDisclosure : FText::GetEmpty();
     const FAiNpcProviderConfiguration Dialogue = Defaults ? Defaults->DialogueDefaults : FAiNpcProviderConfiguration();
     const FAiNpcProviderConfiguration Review = Defaults ? Defaults->ReviewerDefaults : FAiNpcProviderConfiguration();
+    const bool bRequireIndependent = Defaults != nullptr && Defaults->bRequireIndependentSemanticReview;
 
     return SNew(SBorder).Padding(20)
     [
@@ -47,8 +48,13 @@ TSharedRef<SWidget> UAiNpcProviderSettingsWidget::RebuildWidget()
             + SVerticalBox::Slot().AutoHeight()
             [
                 SAssignNew(SameProviderCheckBox, SCheckBox)
-                .IsChecked(ECheckBoxState::Checked)
-                [ SNew(STextBlock).Text(FText::FromString(TEXT("Use the same provider for semantic review"))) ]
+                .IsChecked(bRequireIndependent ? ECheckBoxState::Unchecked : ECheckBoxState::Checked)
+                .IsEnabled(!bRequireIndependent)
+                [
+                    SNew(STextBlock).AutoWrapText(true).Text(FText::FromString(bRequireIndependent
+                        ? TEXT("Use the same provider for semantic review (disabled: this project requires an independent reviewer)")
+                        : TEXT("Use the same provider for semantic review")))
+                ]
             ]
             + SVerticalBox::Slot().AutoHeight()
             [ SNew(STextBlock).Text(FText::FromString(TEXT("Reviewer provider name (used when not sharing)"))) ]
@@ -120,6 +126,13 @@ FReply UAiNpcProviderSettingsWidget::ApplyConfiguration()
     FString ReviewKey;
     if (SameProviderCheckBox->GetCheckedState() == ECheckBoxState::Checked)
     {
+        if (GetDefault<UAiNpcProviderSettings>()->bRequireIndependentSemanticReview)
+        {
+            Provider->ClearCredentials();
+            StatusText->SetText(FText::FromString(TEXT(
+                "review_provider_must_be_independent: this project requires a separate reviewer URL or model.")));
+            return FReply::Handled();
+        }
         Review = Dialogue;
         Review.ProviderName += TEXT(" reviewer");
         Review.Temperature = 0.0f;

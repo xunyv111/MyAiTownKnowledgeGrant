@@ -1,5 +1,6 @@
 #include "AiNpcProviderSubsystem.h"
 
+#include "AiNpcProviderSettings.h"
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
@@ -14,12 +15,82 @@ constexpr int32 MaxRoleChars = 12000;
 constexpr int32 MaxContextChars = 32000;
 constexpr int32 MaxResponseChars = 128000;
 
+bool IsLoopbackHostName(const FString& Host)
+{
+    if (Host == TEXT("localhost") || Host == TEXT("[::1]"))
+    {
+        return true;
+    }
+    // Exact 127.0.0.0/8 IPv4 only. Prefix look-alikes such as
+    // "127.0.0.1.evil.tld" or "localhost.com" parse to a different host and
+    // stay remote, so the bearer key can never leave over plain HTTP to them.
+    TArray<FString> Octets;
+    if (Host.ParseIntoArray(Octets, TEXT("."), false) != 4 || Octets[0] != TEXT("127"))
+    {
+        return false;
+    }
+    for (const FString& Octet : Octets)
+    {
+        if (Octet.IsEmpty() || Octet.Len() > 3)
+        {
+            return false;
+        }
+        for (const TCHAR Character : Octet)
+        {
+            if (Character < TEXT('0') || Character > TEXT('9'))
+            {
+                return false;
+            }
+        }
+        if (FCString::Atoi(*Octet) > 255)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool IsLoopbackHttp(const FString& Url)
 {
     const FString Lower = Url.ToLower();
-    return Lower.StartsWith(TEXT("http://127.0.0.1"))
-        || Lower.StartsWith(TEXT("http://localhost"))
-        || Lower.StartsWith(TEXT("http://[::1]"));
+    if (!Lower.StartsWith(TEXT("http://")))
+    {
+        return false;
+    }
+    FString Authority = Lower.RightChop(7);
+    int32 AuthorityEnd = Authority.Len();
+    const int32 Slash = Authority.Find(TEXT("/"));
+    const int32 Query = Authority.Find(TEXT("?"));
+    const int32 Fragment = Authority.Find(TEXT("#"));
+    if (Slash != INDEX_NONE) AuthorityEnd = FMath::Min(AuthorityEnd, Slash);
+    if (Query != INDEX_NONE) AuthorityEnd = FMath::Min(AuthorityEnd, Query);
+    if (Fragment != INDEX_NONE) AuthorityEnd = FMath::Min(AuthorityEnd, Fragment);
+    Authority = Authority.Left(AuthorityEnd);
+
+    // The host starts after the last '@', so userinfo such as
+    // "http://127.0.0.1@evil.tld" cannot smuggle a loopback-looking prefix.
+    int32 AtSign = INDEX_NONE;
+    if (Authority.FindLastChar(TEXT('@'), AtSign))
+    {
+        Authority = Authority.RightChop(AtSign + 1);
+    }
+
+    if (Authority.StartsWith(TEXT("[")))
+    {
+        int32 CloseBracket = INDEX_NONE;
+        if (!Authority.FindChar(TEXT(']'), CloseBracket))
+        {
+            return false;
+        }
+        return Authority.Left(CloseBracket + 1) == TEXT("[::1]");
+    }
+
+    int32 Colon = INDEX_NONE;
+    if (Authority.FindLastChar(TEXT(':'), Colon))
+    {
+        Authority = Authority.Left(Colon);
+    }
+    return IsLoopbackHostName(Authority);
 }
 
 TSharedPtr<FJsonObject> ParseObject(const FString& Json, FString& OutError)
@@ -86,6 +157,23 @@ bool UAiNpcProviderSubsystem::ConfigureProvider(EAiNpcProviderChannel Channel,
     {
         OutError = TEXT("provider_api_key_missing");
         return false;
+    }
+
+    // Enforced in both directions so configuration order cannot bypass it.
+    const UAiNpcProviderSettings* ProjectSettings = GetDefault<UAiNpcProviderSettings>();
+    if (ProjectSettings != nullptr && ProjectSettings->bRequireIndependentSemanticReview)
+    {
+        const FRuntimeProvider& OtherChannel = ProviderFor(
+            Channel == EAiNpcProviderChannel::DialogueGeneration
+                ? EAiNpcProviderChannel::SemanticReview
+                : EAiNpcProviderChannel::DialogueGeneration);
+        if (OtherChannel.bConfigured
+            && OtherChannel.Configuration.ChatCompletionsUrl == TrimmedUrl(Configuration.ChatCompletionsUrl)
+            && OtherChannel.Configuration.Model.TrimStartAndEnd() == Configuration.Model.TrimStartAndEnd())
+        {
+            OutError = TEXT("review_provider_must_be_independent");
+            return false;
+        }
     }
 
     FRuntimeProvider& Runtime = ProviderFor(Channel);

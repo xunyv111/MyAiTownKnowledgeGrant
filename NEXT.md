@@ -15,6 +15,13 @@ updated: 2026-10-23
 - 执行期持久权威蓝图预算：`0`
 - 冻结概念：知识授权属于“当前玩家 × 当前语境”；NPC Receiver 只保存人格反应，不是第三个授权集合。
 
+## 0.4.1 安全与隐私修复
+
+- `IsLoopbackHttp` 改为精确主机匹配（localhost / [::1] / 127.0.0.0/8），拒绝前缀仿冒、userinfo 伪装与十进制 IP 形式的明文 HTTP 地址。
+- 授权 State 复制改为 `COND_OwnerOnly`，授予历史（含稳定玩家 ID）不再广播给其他客户端。
+- `bRequireIndependentSemanticReview` 生效（默认开启）：审查通道与对话通道 URL+模型相同即拒绝配置；设置面板同步禁用共用勾选。
+- Provider 合同自动化新增 loopback 仿冒拒绝与审查独立性用例。
+
 ## 0.4.0 已实现
 
 - 保留原有 Authority 授权、因果前置、语境收集、知识视图、Schema v3 快照、复制、撤销和人格反应能力。
