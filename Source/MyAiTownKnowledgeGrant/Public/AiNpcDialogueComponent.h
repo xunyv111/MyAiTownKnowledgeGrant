@@ -56,10 +56,8 @@ private:
     UPROPERTY(Transient) TArray<FAiNpcLocalTurn> LocalTranscript;
     TMap<FGuid, FPendingTurn> PendingTurns;
     TMap<FString, FGuid> SemanticToProviderRequest;
-    FGuid StartingSemanticForProviderRequest;
 
     UFUNCTION() void HandleProviderCompleted(FAiNpcProviderResult Result);
-    UFUNCTION() void HandleSemanticReviewRequested(FKnowledgeSemanticReviewRequest Request);
     UFUNCTION() void HandleReviewProviderCompleted(FKnowledgeSemanticReviewResponse Response);
     UFUNCTION() void HandleSemanticReviewCompleted(FKnowledgeSemanticReviewResult Result);
 

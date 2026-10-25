@@ -24,8 +24,6 @@ void UAiNpcDialogueComponent::BeginPlay()
     }
     if (SemanticReviewComponent)
     {
-        SemanticReviewComponent->OnSemanticReviewRequested.AddDynamic(
-            this, &UAiNpcDialogueComponent::HandleSemanticReviewRequested);
         SemanticReviewComponent->OnSemanticReviewCompleted.AddDynamic(
             this, &UAiNpcDialogueComponent::HandleSemanticReviewCompleted);
     }
@@ -41,8 +39,6 @@ void UAiNpcDialogueComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
     }
     if (SemanticReviewComponent)
     {
-        SemanticReviewComponent->OnSemanticReviewRequested.RemoveDynamic(
-            this, &UAiNpcDialogueComponent::HandleSemanticReviewRequested);
         SemanticReviewComponent->OnSemanticReviewCompleted.RemoveDynamic(
             this, &UAiNpcDialogueComponent::HandleSemanticReviewCompleted);
     }
@@ -149,31 +145,28 @@ void UAiNpcDialogueComponent::HandleProviderCompleted(FAiNpcProviderResult Resul
         return;
     }
 
-    StartingSemanticForProviderRequest = Result.RequestId;
     const FKnowledgeSemanticReviewBeginResult Begin = SemanticReviewComponent->BeginSemanticReview(
         PlayerKnowledge, Turn->KnowledgeView, Collectors, Guarded, SemanticReviewPolicy);
-    StartingSemanticForProviderRequest.Invalidate();
     if (!Begin.bOk)
     {
         BroadcastFallback(Result.RequestId, Begin.Error, SemanticReviewPolicy->ErrorText);
         PendingTurns.Remove(Result.RequestId);
+        return;
     }
-}
-
-void UAiNpcDialogueComponent::HandleSemanticReviewRequested(FKnowledgeSemanticReviewRequest Request)
-{
-    if (!StartingSemanticForProviderRequest.IsValid()) return;
-    SemanticToProviderRequest.Add(Request.RequestId, StartingSemanticForProviderRequest);
-    FString Error;
+    // Route the review we just started directly: correlating via a member field that is
+    // only valid during the synchronous OnSemanticReviewRequested broadcast breaks when
+    // several dialogue components share one review component.
+    SemanticToProviderRequest.Add(Begin.Request.RequestId, Result.RequestId);
+    FString ReviewError;
     UAiNpcProviderSubsystem* Provider = GetProviderSubsystem();
-    if (!Provider || !Provider->RequestSemanticReview(Request, Error))
+    if (!Provider || !Provider->RequestSemanticReview(Begin.Request, ReviewError))
     {
         FKnowledgeSemanticReviewResponse Failure;
-        Failure.RequestId = Request.RequestId;
+        Failure.RequestId = Begin.Request.RequestId;
         Failure.Decision = EKnowledgeSemanticReviewDecision::Error;
         Failure.ReviewerName = TEXT("local-provider-gateway");
         Failure.ReviewerVersion = TEXT("unavailable");
-        Failure.ReasonCodes.Add(Error.IsEmpty() ? TEXT("review_provider_not_available") : Error);
+        Failure.ReasonCodes.Add(ReviewError.IsEmpty() ? TEXT("review_provider_not_available") : ReviewError);
         SemanticReviewComponent->CompleteSemanticReview(Failure);
     }
 }

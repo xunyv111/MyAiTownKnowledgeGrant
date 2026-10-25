@@ -81,13 +81,10 @@ FArpgKnowledgeGrantAdapterResult UArpgKnowledgeGrantAdapterComponent::GrantCompl
     FString StablePlayerId;
     int32 CompletionRevision = 0;
     bool bDebugEvent = false;
-    const IArpgQuestAuthorityProvider* NativeProvider =
-        Cast<IArpgQuestAuthorityProvider>(QuestAuthorityProvider);
-    const bool bCompleted = NativeProvider != nullptr
-        ? NativeProvider->ResolveCompletedQuest_Implementation(
-            Owner, QuestId, StablePlayerId, CompletionRevision, bDebugEvent)
-        : IArpgQuestAuthorityProvider::Execute_ResolveCompletedQuest(
-            QuestAuthorityProvider, Owner, QuestId, StablePlayerId, CompletionRevision, bDebugEvent);
+    // Always dispatch through the interface thunk: calling ResolveCompletedQuest_Implementation
+    // directly on a natively-cast pointer would skip Blueprint overrides of this BlueprintNativeEvent.
+    const bool bCompleted = IArpgQuestAuthorityProvider::Execute_ResolveCompletedQuest(
+        QuestAuthorityProvider, Owner, QuestId, StablePlayerId, CompletionRevision, bDebugEvent);
     StablePlayerId = StablePlayerId.TrimStartAndEnd();
     if (bDebugEvent)
     {

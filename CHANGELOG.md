@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.2 - 2026-10-26
+
+- 修复:`ARPG Knowledge Grant Adapter` 核验任务时改为恒定经接口 thunk(`Execute_ResolveCompletedQuest`)调度;此前原生类实现者会被直接调用 `ResolveCompletedQuest_Implementation`,导致蓝图子类对 `ResolveCompletedQuest` 的覆写被静默跳过,任务核验结果取自原生基线而非项目覆写。
+- 修复:`AI NPC Dialogue Component` 发起语义审查后改为在调用点直接建立"审查请求 → 对话请求"映射并转发 Provider;此前依赖仅在同步广播窗口内有效的成员字段路由,多个对话组件共用一个语义审查组件时存在错误配对风险。`OnSemanticReviewRequested` 委托照常广播,自定义转发方不受影响。
+
 ## 0.4.1 - 2026-10-24
 
 - 安全:HTTP loopback 豁免从字符串前缀改为精确主机匹配,只接受 `localhost`、`[::1]` 与 `127.0.0.0/8`;`http://localhost.com`、`http://127.0.0.1.evil.tld`、`http://127.0.0.1@evil.tld`、十进制 IP 等仿冒地址一律按远程处理并强制 HTTPS,API Key 不再可能经此类地址明文外发。

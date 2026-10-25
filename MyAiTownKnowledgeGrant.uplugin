@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
-  "Version": 5,
-  "VersionName": "0.4.1",
+  "Version": 6,
+  "VersionName": "0.4.2",
   "FriendlyName": "My AI Town Knowledge Grant",
   "Description": "Local-BYOK AI NPC roleplay, server-authoritative ARPG knowledge grants, and fail-closed semantic review.",
   "Category": "AI",
