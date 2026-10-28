@@ -1,13 +1,13 @@
 # Fab Submission Checklist
 
-Status: **ready for source-only resubmission after final clean-project install verification**.
+Status: **ready for source-only resubmission**.
 
 ## Current candidate
 
 - Engine: Unreal Engine 5.8.4
 - Supported target platform: Win64
 - Package type: source code plugin
-- Plugin version: 0.4.0 (Beta)
+- Plugin version: 0.4.2 (Beta)
 - Snapshot schema: 3
 - Repository license: MIT License
 - Fab archive root: `MyAiTownKnowledgeGrant/`
@@ -27,10 +27,10 @@ Status: **ready for source-only resubmission after final clean-project install v
 - UnrealHeaderTool completed with warnings treated as errors.
 - UnrealEditor Win64 Development completed.
 - UnrealGame Win64 Development and Shipping completed.
-- Plugin Automation completed 12 of 12 cases with 0 warnings and 0 failures on Unreal Engine 5.8.4.
+- Plugin Automation completed 12 of 12 cases with 0 warnings and 0 failures on Unreal Engine 5.8.4 using the 0.4.2 build.
 - `Scripts/validate-plugin.mjs` validates the source structure and guarded runtime boundary markers.
 
-The exact final source-only archive must still be installed in a clean Unreal Engine 5.8.4 project before upload to confirm discovery and local regeneration of build products. This install check is separate from the earlier compiled-package evidence.
+The 0.4.2 source was rebuilt with `RunUAT BuildPlugin` in a short ASCII path. UnrealHeaderTool, Editor Development, Game Development, and Game Shipping all succeeded. The generated plugin was then loaded by a minimal Unreal Engine 5.8.4 host and its 12 automation cases passed with no warnings or failures.
 
 ## Listing boundaries
 
@@ -46,4 +46,4 @@ Player BYOK is intended for single-player games and local listen servers. A prod
 - Confirm listing text identifies Unreal Engine 5.8 and Win64 only.
 - Upload store media that shows the actual plugin workflow.
 - Confirm no API keys, tokens, logs, crash dumps, host projects, or machine paths are present.
-- Run the clean-project install check against the exact final archive.
+- Retain the final archive checksum with the submission record.

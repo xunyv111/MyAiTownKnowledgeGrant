@@ -247,7 +247,7 @@ flowchart TD
 
 将 `MyAiTownKnowledgeGrant` 整个目录复制到 Unreal 项目的 `Plugins/` 下，重新生成项目文件并编译。插件只使用 UE 内置的 GameplayTags、HTTP、JSON、UMG 和 Slate 模块，不依赖第三方模型 SDK 或数据库。
 
-`0.4.0` 源码已通过 UE 5.8.4 / Win64 隔离 BuildPlugin 验证；二进制包以正式发布资产为准。安装、宿主发布前检查与已知边界见 [INSTALL.md](INSTALL.md)，官方构建清单见 [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)。其他引擎版本或平台应使用源码重新编译。
+`0.4.2` 源码已通过 UE 5.8.4 / Win64 隔离 BuildPlugin 验证及插件 Automation 12/12；二进制包以正式发布资产为准。安装、宿主发布前检查与已知边界见 [INSTALL.md](INSTALL.md)，官方构建清单见 [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)。其他引擎版本或平台应使用源码重新编译。
 
 单机 ARPG 推荐把 `Knowledge Grant Component` 挂在跨关卡可恢复的玩家 Actor 或 PlayerState 上；联机 ARPG 推荐挂在服务器权威且可复制的 PlayerState 上。不要挂在每个 NPC 上。
 
