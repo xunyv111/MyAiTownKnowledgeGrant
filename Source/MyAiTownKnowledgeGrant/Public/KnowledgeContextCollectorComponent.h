@@ -1,3 +1,5 @@
+// Copyright 2026 xunyv.
+
 #pragma once
 
 #include "CoreMinimal.h"

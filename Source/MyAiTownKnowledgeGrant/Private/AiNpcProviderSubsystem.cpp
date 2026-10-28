@@ -1,3 +1,5 @@
+// Copyright 2026 xunyv.
+
 #include "AiNpcProviderSubsystem.h"
 
 #include "AiNpcProviderSettings.h"
@@ -397,7 +399,7 @@ bool UAiNpcProviderSubsystem::ParseReviewResponse(const FString& ResponseJson,
         TEXT("decision"), TEXT("reviewedClaimIds"), TEXT("unsupportedClaimIds"), TEXT("reasonCodes")};
     for (const auto& Pair : Root->Values)
     {
-        if (!AllowedFields.Contains(Pair.Key)) { OutError = TEXT("review_unknown_field"); return false; }
+        if (!AllowedFields.Contains(FString(Pair.Key))) { OutError = TEXT("review_unknown_field"); return false; }
     }
     FString Decision;
     if (!Root->TryGetStringField(TEXT("decision"), Decision))

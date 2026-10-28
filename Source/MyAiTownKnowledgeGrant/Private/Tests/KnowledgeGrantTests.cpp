@@ -1,3 +1,5 @@
+// Copyright 2026 xunyv.
+
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Engine/GameInstance.h"

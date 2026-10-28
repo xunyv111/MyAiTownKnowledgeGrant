@@ -8,11 +8,15 @@
   "CreatedBy": "xunyv",
   "CanContainContent": true,
   "IsBetaVersion": true,
+  "EngineVersion": "5.8.0",
   "Modules": [
     {
       "Name": "MyAiTownKnowledgeGrant",
       "Type": "Runtime",
-      "LoadingPhase": "Default"
+      "LoadingPhase": "Default",
+      "PlatformAllowList": [
+        "Win64"
+      ]
     }
   ]
 }

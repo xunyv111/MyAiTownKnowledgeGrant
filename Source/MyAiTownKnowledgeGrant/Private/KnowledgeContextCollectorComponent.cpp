@@ -1,3 +1,5 @@
+// Copyright 2026 xunyv.
+
 #include "KnowledgeContextCollectorComponent.h"
 
 void UKnowledgeContextCollectorComponent::EnterSceneContext(

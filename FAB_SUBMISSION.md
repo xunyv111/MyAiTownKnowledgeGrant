@@ -1,38 +1,49 @@
 # Fab Submission Checklist
 
-Status: **not submitted**. The 0.3.0 package is an ARPG code-plugin integration candidate, not yet a completed Fab listing.
+Status: **ready for source-only resubmission after final clean-project install verification**.
 
 ## Current candidate
 
-- Engine: Unreal Engine 5.7.4
-- Platform built: Win64
-- Package type: code plugin with source and precompiled Editor/Game objects
-- Plugin version: 0.3.0
+- Engine: Unreal Engine 5.8.4
+- Supported target platform: Win64
+- Package type: source code plugin
+- Plugin version: 0.4.0 (Beta)
 - Snapshot schema: 3
-- License: MIT License
+- Repository license: MIT License
+- Fab archive root: `MyAiTownKnowledgeGrant/`
 
-## Required before submission
+## Technical review corrections
 
-1. Confirm Fab license terms for an MIT-licensed code plugin. The GitHub license and the Fab listing license are separate decisions.
-2. Decide whether `CanContainContent` stays `true`. The plugin currently ships no content assets; either set it to `false` or add a real sample map/data asset.
-3. Add the engine version metadata expected by Fab and verify the exact supported-version range.
-4. Prepare store media: icon, thumbnail, screenshots, and a short feature video. The current acceptance screenshots are diagnostic HUD captures and are not store media.
-5. Test in a clean UE 5.7 project: enable the plugin, compile, cook/package, and exercise a real dialogue outlet that consumes only `FinalApprovedText` after external semantic review.
-6. Decide whether to ship as Beta. `IsBetaVersion` is currently `true`.
-7. Prepare listing text: short description, long description, feature list, supported platforms, support contact, documentation link, changelog, and known limitations.
-8. Remove all host projects, `Saved`, `Intermediate`, `Binaries` beyond the packaged plugin, logs, crash dumps, and machine paths from the submission package.
-9. Confirm no API keys, tokens, or local environment overrides are present.
-10. Run Fab's technical review package check and a fresh-project compile before upload.
+- The Fab archive contains complete human-readable C++ source and no generated `Binaries`, `Build`, `Intermediate`, or `Saved` directory.
+- The archive contains one top-level plugin folder.
+- Every archive path is 170 characters or fewer.
+- Buyer-facing documentation in the Fab archive is English.
+- The repository retains additional Chinese and internal design documentation, but those files are not part of the Fab review archive.
+- `MyAiTownKnowledgeGrant.uplugin` declares Unreal Engine 5.8 and a Win64 `PlatformAllowList`.
+- All C++ source and header files contain the publisher copyright notice.
 
-## Known technical gaps
+## Validation evidence
 
-- No manual keyboard/mouse Play acceptance for the saved map.
-- No target-project Cook/Package or deployment acceptance.
-- No formal external dedicated-server process.
-- No 10k NPC / 1k pack scale benchmark.
-- The mechanical gate is a structural evidence/metadata check; the plugin now exposes a provider-neutral semantic review contract, but the target ARPG must supply and validate the real review service.
-- No cross-server ledger, server-side content delivery, global NPC identity, or client anti-datamining.
+- UnrealHeaderTool completed with warnings treated as errors.
+- UnrealEditor Win64 Development completed.
+- UnrealGame Win64 Development and Shipping completed.
+- Plugin Automation completed 12 of 12 cases with 0 warnings and 0 failures on Unreal Engine 5.8.4.
+- `Scripts/validate-plugin.mjs` validates the source structure and guarded runtime boundary markers.
 
-## Suggested listing boundaries
+The exact final source-only archive must still be installed in a clean Unreal Engine 5.8.4 project before upload to confirm discovery and local regeneration of build products. This install check is separate from the earlier compiled-package evidence.
 
-Describe the plugin only as a **runtime knowledge authorization, quest-adapter, and semantic-review contract for single-player or networked ARPG projects**. Do not market it as a generic RPG framework, cross-server backend, model SDK, or absolute truth verifier.
+## Listing boundaries
+
+Describe the plugin as a runtime knowledge-authorization, quest-adapter, guarded AI-NPC provider, and semantic-review contract for single-player or networked ARPG projects.
+
+Do not market it as a generic RPG framework, cross-server backend, vector database, model SDK, absolute truth verifier, or protection against extraction of plaintext client assets.
+
+Player BYOK is intended for single-player games and local listen servers. A production dedicated server should use server-owned provider credentials and server-controlled privacy, cost, prompt, and audit policies.
+
+## Final publisher checks
+
+- Confirm the Fab listing license and support contact.
+- Confirm listing text identifies Unreal Engine 5.8 and Win64 only.
+- Upload store media that shows the actual plugin workflow.
+- Confirm no API keys, tokens, logs, crash dumps, host projects, or machine paths are present.
+- Run the clean-project install check against the exact final archive.

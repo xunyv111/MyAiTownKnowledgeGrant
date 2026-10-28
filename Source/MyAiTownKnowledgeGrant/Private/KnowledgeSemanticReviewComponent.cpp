@@ -1,3 +1,5 @@
+// Copyright 2026 xunyv.
+
 #include "KnowledgeSemanticReviewComponent.h"
 
 #include "GameFramework/Actor.h"

@@ -1,3 +1,5 @@
+// Copyright 2026 xunyv.
+
 #include "KnowledgeModelAdapterLibrary.h"
 
 #include "KnowledgeContextCollectorComponent.h"

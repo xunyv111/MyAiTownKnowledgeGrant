@@ -1,3 +1,5 @@
+// Copyright 2026 xunyv.
+
 #include "KnowledgeGrantComponent.h"
 
 #include "GameFramework/Actor.h"

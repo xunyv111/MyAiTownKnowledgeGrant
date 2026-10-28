@@ -1,10 +1,10 @@
 # Verification Summary
 
-This file is the public, machine-independent summary of the 0.3.0 validation. Raw automation reports and logs are not distributed in this repository because they contain machine paths and host metadata. The publisher retains the local evidence bundle separately.
+This file is the public, machine-independent summary of the 0.4.0 validation. Raw automation reports and logs are not distributed in this repository because they contain machine paths and host metadata. The publisher retains the local evidence bundle separately.
 
 ## Build
 
-- Unreal Engine 5.7.4, Win64.
+- Unreal Engine 5.8.4, Win64.
 - `RunUAT BuildPlugin` completed `UnrealEditor Win64 Development`, `UnrealGame Win64 Development`, and `UnrealGame Win64 Shipping`.
 - UnrealHeaderTool ran with `-WarningsAsErrors`.
 - AutomationTool exited with code 0.
@@ -13,12 +13,11 @@ This file is the public, machine-independent summary of the 0.3.0 validation. Ra
 
 | Suite | Result |
 |---|---|
-| Plugin (`MyAiTown.KnowledgeGrant`) | 11 succeeded, 0 warnings, 0 failed |
-| ARPG adapter (`KnowledgeGrantHost.ARPG`) | 1 succeeded, 0 warnings, 0 failed |
-| Demo and Blueprint (`KnowledgeGrantHost.Demo`, `KnowledgeGrantHost.BlueprintDemo`) | 3 succeeded, 0 warnings, 0 failed |
-| Network PIE (`KnowledgeGrantHost.Network`) | 1 succeeded, 36 UE NetGUID framework warnings, 0 business errors |
+| Plugin (`MyAiTown.KnowledgeGrant`) | 12 succeeded, 0 warnings, 0 failed |
 
-Strict totals: 16 cases executed, 15 clean successes, 1 success with framework warnings, 0 failures, 0 not run.
+Strict UE 5.8 totals: 12 cases executed, 12 clean successes, 0 failures, 0 not run.
+
+The ARPG host, demo, multiplayer PIE, and offscreen-level results below are retained as a UE 5.7.4 historical integration baseline. They were not rerun as part of this UE 5.8 plugin-package verification.
 
 ## Real-level offscreen acceptance
 

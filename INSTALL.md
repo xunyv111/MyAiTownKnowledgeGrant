@@ -1,11 +1,13 @@
 # 安装与接入检查单
 
+> **English version:** [INSTALL_EN.md](INSTALL_EN.md)
+
 ## 兼容范围
 
-- 已验证引擎：Unreal Engine 5.7.4。
+- 已验证引擎：Unreal Engine 5.8.4。
 - 已验证平台：Windows 64-bit。
 - 插件类型：Runtime；使用 UE 内置 HTTP/JSON/UMG/Slate，不依赖第三方模型 SDK或数据库。
-- 发布包包含 Win64 Editor 预编译 DLL、Development/Shipping 预编译对象和完整源码。
+- Fab 提交包包含完整的人类可读源码，不包含 `Binaries`、`Build`、`Intermediate` 或 `Saved`；Unreal Engine 会在目标项目中重新生成这些目录。
 
 其他 UE 5.x 小版本或其他平台应从源码重新编译，并重新运行项目自己的 Automation、多人 PIE 与 Cook/Package。
 
