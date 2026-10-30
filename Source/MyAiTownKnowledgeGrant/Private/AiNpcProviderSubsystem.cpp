@@ -384,10 +384,10 @@ bool UAiNpcProviderSubsystem::BuildDialogueRequestBody(
 
     FString Contract = TEXT(
         "Return exactly one JSON object and no markdown. The root must contain exactly one field named claims. "
-        "claims must contain at least one item. Every item must contain exactly claimId, text, evidenceFactIds, "
-        "claimedEntities, claimedNumbers, negated. evidenceFactIds must contain exact FactId strings copied from "
-        "AUTHORIZED TURN FACTS. claimedEntities and claimedNumbers are optional untrusted diagnostics: use [] when "
-        "none, and do not treat them as authorization sources. Each claim text must contain exactly one independently reviewable proposition. Split factual "
+        "claims must contain at least one item. Every item must contain claimId, text, evidenceFactIds, negated. "
+        "It may also contain claimedEntities and claimedNumbers, which are untrusted diagnostics: use [] when none "
+        "and do not treat them as authorization sources. evidenceFactIds must contain exact FactId strings copied from "
+        "AUTHORIZED TURN FACTS. Each claim text must contain exactly one independently reviewable proposition. Split factual "
         "assertions, non-factual reactions, advice, intentions, requests, and questions into separate claim items. Never "
         "combine a greeting, conversational transition, first-person present activity, or immediate intention with a "
         "world-state assertion in the same claim item. A sentence such as 'I am reviewing the report; three guards are "

@@ -34,6 +34,21 @@ bool HasExactFields(const TSharedPtr<FJsonObject>& Object, const TSet<FString>& 
     return true;
 }
 
+bool HasAllowedFields(const TSharedPtr<FJsonObject>& Object,
+    const TSet<FString>& Required, const TSet<FString>& Optional)
+{
+    if (!Object.IsValid()) return false;
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Field : Object->Values)
+    {
+        if (!Required.Contains(Field.Key) && !Optional.Contains(Field.Key)) return false;
+    }
+    for (const FString& Field : Required)
+    {
+        if (!Object->HasField(Field)) return false;
+    }
+    return true;
+}
+
 bool ReadStringArray(const TSharedPtr<FJsonObject>& Object, const TCHAR* FieldName,
     int32 MaximumCount, TArray<FString>& OutValues, bool bRequireNonEmpty)
 {
@@ -98,14 +113,15 @@ bool ParseClaims(const FString& JsonPayload, bool bAllowUncitedRoleplay,
         return false;
     }
 
-    const TSet<FString> ClaimFields{
-        TEXT("claimId"), TEXT("text"), TEXT("evidenceFactIds"),
-        TEXT("claimedEntities"), TEXT("claimedNumbers"), TEXT("negated")};
+    const TSet<FString> RequiredClaimFields{
+        TEXT("claimId"), TEXT("text"), TEXT("evidenceFactIds"), TEXT("negated")};
+    const TSet<FString> OptionalClaimFields{TEXT("claimedEntities"), TEXT("claimedNumbers")};
     for (const TSharedPtr<FJsonValue>& JsonClaimValue : *JsonClaims)
     {
         const TSharedPtr<FJsonObject>* JsonClaimObject = nullptr;
         if (!JsonClaimValue.IsValid() || !JsonClaimValue->TryGetObject(JsonClaimObject)
-            || JsonClaimObject == nullptr || !HasExactFields(*JsonClaimObject, ClaimFields))
+            || JsonClaimObject == nullptr
+            || !HasAllowedFields(*JsonClaimObject, RequiredClaimFields, OptionalClaimFields))
         {
             OutError = TEXT("model_json_claim_invalid");
             return false;
@@ -143,8 +159,14 @@ bool ParseClaims(const FString& JsonPayload, bool bAllowUncitedRoleplay,
             OutError = TEXT("model_json_evidence_invalid");
             return false;
         }
-        if (!ReadStringArray(*JsonClaimObject, TEXT("claimedEntities"), MaxMetadataTokens, Entities, false)
-            || !ReadStringArray(*JsonClaimObject, TEXT("claimedNumbers"), MaxMetadataTokens, Numbers, false))
+        if ((*JsonClaimObject)->HasField(TEXT("claimedEntities"))
+            && !ReadStringArray(*JsonClaimObject, TEXT("claimedEntities"), MaxMetadataTokens, Entities, false))
+        {
+            OutError = TEXT("model_json_metadata_invalid");
+            return false;
+        }
+        if ((*JsonClaimObject)->HasField(TEXT("claimedNumbers"))
+            && !ReadStringArray(*JsonClaimObject, TEXT("claimedNumbers"), MaxMetadataTokens, Numbers, false))
         {
             OutError = TEXT("model_json_metadata_invalid");
             return false;

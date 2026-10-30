@@ -729,6 +729,13 @@ bool FKnowledgeModelAdapterContractTest::RunTest(const FString& Parameters)
         DerivedEntity.bOk && !DerivedEntity.bBlocked
         && DerivedEntity.SafeText == TEXT("现场发现了1枚王廷秘印。"));
 
+    const FString NoMetadataJson = TEXT("{\"claims\":[{\"claimId\":\"claim.no.metadata\",\"text\":\"现场发现�?枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"negated\":false}]}");
+    const FKnowledgeDialogueGuardResult NoMetadata =
+        UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
+            Player, View, FGameplayTagContainer(), NoMetadataJson, Policy);
+    TestTrue(TEXT("Claim metadata is optional because it is not an authorization source"),
+        NoMetadata.bOk && !NoMetadata.bBlocked);
+
     const FString WrongNumberJson = TEXT("{\"claims\":[{\"claimId\":\"claim.wrong.number.json\",\"text\":\"现场发现了2枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"2\"],\"negated\":false}]}");
     TestTrue(TEXT("Parsed ordinary numbers are passed to the independent semantic reviewer"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
