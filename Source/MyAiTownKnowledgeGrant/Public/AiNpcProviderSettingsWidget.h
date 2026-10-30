@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -20,6 +18,16 @@ protected:
     virtual TSharedRef<SWidget> RebuildWidget() override;
 
 private:
+    struct FProfileFields
+    {
+        FName ProfileId;
+        TSharedPtr<SEditableTextBox> ProviderName;
+        TSharedPtr<SEditableTextBox> Url;
+        TSharedPtr<SEditableTextBox> Model;
+        TSharedPtr<SEditableTextBox> ApiKey;
+    };
+
+    TArray<FProfileFields> ProfileFields;
     TSharedPtr<SEditableTextBox> DialogueProviderName;
     TSharedPtr<SEditableTextBox> DialogueUrl;
     TSharedPtr<SEditableTextBox> DialogueModel;

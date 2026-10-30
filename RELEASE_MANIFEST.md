@@ -18,8 +18,8 @@
 
 - UHT `WarningsAsErrors`：通过；
 - UnrealEditor、UnrealGame Development、UnrealGame Shipping：全部通过；
-- 插件 Automation：12/12，0 警告，0 失败；
-- 本轮 UE 5.8 插件 Automation：12/12，0 警告，0 失败；
+- 插件 Automation：20/20，0 警告，0 失败；
+- 本轮 UE 5.8 插件 Automation：20/20，0 警告，0 失败；
 - 旧版宿主 Automation 5/5 与网络 PIE 结果只作为 UE 5.7.4 历史集成基线，未计入本轮结果；
 - 静态结构验证：通过。
 

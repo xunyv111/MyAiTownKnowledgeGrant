@@ -13,9 +13,11 @@ This file is the public, machine-independent summary of the 0.4.2 validation. Ra
 
 | Suite | Result |
 |---|---|
-| Plugin (`MyAiTown.KnowledgeGrant`) | 12 succeeded, 0 warnings, 0 failed |
+| Plugin (`MyAiTown.KnowledgeGrant`) | 20 succeeded, 0 warnings, 0 failed |
 
-Strict UE 5.8 totals: 12 cases executed, 12 clean successes, 0 failures, 0 not run.
+Strict UE 5.8 totals: 20 cases executed, 20 clean successes, 0 failures, 0 not run.
+
+The merge branch adds eight focused suites: `QuestAuthorityBlueprintDispatch`, `SemanticRequestCorrelation`, `RequestIdempotency`, `StaleResponseRejection`, `MultiProviderRouting`, `DialogueFormatRepair`, `DeterministicAuthorizedFallback`, and `SemanticClaimGates`.
 
 The ARPG host, demo, multiplayer PIE, and offscreen-level results below are retained as a UE 5.7.4 historical integration baseline. They were not rerun as part of this UE 5.8 plugin-package verification.
 

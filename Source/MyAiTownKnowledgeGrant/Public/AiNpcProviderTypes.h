@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -29,6 +27,15 @@ struct MYAITOWNKNOWLEDGEGRANT_API FAiNpcProviderConfiguration
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Provider") bool bAllowInsecureLoopback = true;
     /** Must be set by the player after seeing the disclosure. Never inferred or persisted. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Privacy") bool bPlayerConsentedToProviderTransmission = false;
+
+    /** Non-reflected request hint for providers that support JSON object response mode. */
+    bool bRequestJsonObjectResponse = false;
+
+    /**
+     * Provider compatibility hint for strict JSON contracts. DeepSeek V4 enables
+     * thinking by default, which can consume the output budget before content.
+     */
+    bool bDisableThinkingForJsonContract = false;
 };
 
 USTRUCT(BlueprintType)
@@ -37,9 +44,19 @@ struct MYAITOWNKNOWLEDGEGRANT_API FAiNpcPersona
     GENERATED_BODY()
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC") FName NpcId;
+    /** Selects an in-memory dialogue provider profile. None uses the shared default profile. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Provider") FName ProviderProfileId;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC") FString DisplayName;
     /** Public role instructions sent to the selected provider on each request. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC", meta=(MultiLine=true)) FString RoleInstructions;
+
+    /**
+     * Opt-in for non-factual in-character dialogue without fact citations.
+     * World-state assertions still require authorized evidence and the guard
+     * policy must independently opt in before such dialogue can be released.
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Guard")
+    bool bAllowUncitedRoleplay = false;
 };
 
 USTRUCT(BlueprintType)
@@ -65,8 +82,30 @@ struct MYAITOWNKNOWLEDGEGRANT_API FAiNpcFinalReply
     UPROPERTY(BlueprintReadOnly, Category="AI NPC") bool bApproved = false;
     UPROPERTY(BlueprintReadOnly, Category="AI NPC") bool bUsedTrustedFallback = false;
     UPROPERTY(BlueprintReadOnly, Category="AI NPC") FGuid RequestId;
+    /** Stable caller-owned idempotency key. Never contains prompt or credential data. */
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Request") FGuid ClientRequestId;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Request") bool bDuplicateRequest = false;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Request") bool bProviderRetryAttempted = false;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Request") bool bFormatRepairAttempted = false;
     /** The only field intended for subtitles, voice and behavior outlets. */
     UPROPERTY(BlueprintReadOnly, Category="AI NPC") FString FinalApprovedText;
+    /** Development diagnostics only; a semantic reviewer rejected this mechanically validated candidate. */
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC") FString RejectedCandidateText;
+    /** Trusted FactIds used verbatim by the deterministic fallback. Empty when no authorized fact was available. */
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Diagnostics") TArray<FName> FallbackEvidenceFactIds;
+    /** Locally validated semantic assessments for diagnostics; never use these as dialogue output. */
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC")
+    TArray<FKnowledgeSemanticClaimAssessment> SemanticClaimAssessments;
+    /** Mechanically validated claim texts corresponding to SemanticClaimAssessments. Diagnostics only. */
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC")
+    TArray<FKnowledgeDialogueClaim> SemanticReviewedClaims;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Diagnostics") FString SemanticReviewRequestId;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Diagnostics") FString ReviewerName;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Diagnostics") FString ReviewerVersion;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Diagnostics") FName ReviewPolicyVersion;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Diagnostics") FGuid AuthorizationEpoch;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Diagnostics") int64 ScopeFingerprint = 0;
+    UPROPERTY(BlueprintReadOnly, Category="AI NPC|Diagnostics") int32 ReviewDurationMs = 0;
     UPROPERTY(BlueprintReadOnly, Category="AI NPC") FString Error;
 };
 

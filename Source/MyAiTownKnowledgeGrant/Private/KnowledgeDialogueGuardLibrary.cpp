@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #include "KnowledgeDialogueGuardLibrary.h"
 
 #include "KnowledgeContextCollectorComponent.h"
@@ -15,91 +13,227 @@ FString PolicyText(const UKnowledgeDialogueGuardPolicy* Policy, const FString& E
     return Policy->InvalidViewText.ToString();
 }
 
+bool IsFullWidthDigit(TCHAR Character)
+{
+    return Character >= 0xFF10 && Character <= 0xFF19;
+}
+
+bool IsAnyDigit(TCHAR Character)
+{
+    return (Character >= TEXT('0') && Character <= TEXT('9')) || IsFullWidthDigit(Character);
+}
+
+FString NormalizeCompatibilityText(const FString& Input)
+{
+    FString Result;
+    Result.Reserve(Input.Len());
+    for (int32 Index = 0; Index < Input.Len(); ++Index)
+    {
+        TCHAR Character = Input[Index];
+        if (Character == 0x3000) Character = TEXT(' ');
+        else if (Character >= 0xFF01 && Character <= 0xFF5E) Character -= 0xFEE0;
+        else if (Character == 0x2013 || Character == 0x2014 || Character == 0xFF0D) Character = TEXT('-');
+        else if (Character == 0xFF0C) Character = TEXT(',');
+
+        if (Character == TEXT(',') && !Result.IsEmpty() && IsAnyDigit(Result[Result.Len() - 1])
+            && Index + 1 < Input.Len() && IsAnyDigit(Input[Index + 1]))
+        {
+            continue;
+        }
+        Result.AppendChar(FChar::ToLower(Character));
+    }
+    return Result.TrimStartAndEnd();
+}
+
+bool TryParseSurfaceInteger(const FString& Input, int64& OutValue)
+{
+    const FString Token = NormalizeCompatibilityText(Input);
+    if (Token.IsEmpty()) return false;
+    bool bAsciiOnly = true;
+    for (const TCHAR Character : Token)
+        bAsciiOnly = bAsciiOnly && Character >= TEXT('0') && Character <= TEXT('9');
+    if (bAsciiOnly)
+    {
+        OutValue = FCString::Atoi64(*Token);
+        return true;
+    }
+
+    const auto DigitValue = [](TCHAR Character) -> int32
+    {
+        const int32 Index = FString(TEXT("零一二三四五六七八九")).Find(FString::Chr(Character));
+        if (Index != INDEX_NONE) return Index;
+        if (Character == TEXT('〇')) return 0;
+        if (Character == TEXT('两')) return 2;
+        return INDEX_NONE;
+    };
+    const auto UnitValue = [](TCHAR Character) -> int32
+    {
+        if (Character == TEXT('十')) return 10;
+        if (Character == TEXT('百')) return 100;
+        if (Character == TEXT('千')) return 1000;
+        if (Character == TEXT('万')) return 10000;
+        return 0;
+    };
+
+    bool bHasUnit = false;
+    for (const TCHAR Character : Token)
+    {
+        if (DigitValue(Character) == INDEX_NONE && UnitValue(Character) == 0) return false;
+        bHasUnit = bHasUnit || UnitValue(Character) != 0;
+    }
+    if (!bHasUnit)
+    {
+        int64 Value = 0;
+        for (const TCHAR Character : Token) Value = Value * 10 + DigitValue(Character);
+        OutValue = Value;
+        return true;
+    }
+
+    int64 Total = 0;
+    int64 Section = 0;
+    int64 Number = 0;
+    for (const TCHAR Character : Token)
+    {
+        const int32 Digit = DigitValue(Character);
+        if (Digit != INDEX_NONE)
+        {
+            Number = Digit;
+            continue;
+        }
+        const int32 Unit = UnitValue(Character);
+        if (Unit == 10000)
+        {
+            Total += (Section + Number) * Unit;
+            Section = 0;
+            Number = 0;
+        }
+        else
+        {
+            if (Number == 0) Number = 1;
+            Section += Number * Unit;
+            Number = 0;
+        }
+    }
+    OutValue = Total + Section + Number;
+    return true;
+}
+
+FString NormalizeNumberToken(const FString& Input)
+{
+    int64 Value = 0;
+    return TryParseSurfaceInteger(Input, Value)
+        ? FString::Printf(TEXT("%lld"), Value)
+        : NormalizeCompatibilityText(Input);
+}
+
+bool ContainsNumberToken(const FString& CanonicalText, const FString& CanonicalToken);
+
+bool ContainsEquivalentNumberToken(const FString& Text, const FString& Number)
+{
+    const FString CanonicalText = NormalizeCompatibilityText(Text);
+    const FString CanonicalNumber = NormalizeNumberToken(Number);
+    if (ContainsNumberToken(CanonicalText, NormalizeCompatibilityText(Number))) return true;
+    int64 Expected = 0;
+    if (!TryParseSurfaceInteger(CanonicalNumber, Expected)) return false;
+    const FString ChineseIntegerCharacters = TEXT("零〇一二两三四五六七八九十百千万");
+    for (int32 Start = 0; Start < CanonicalText.Len(); ++Start)
+    {
+        if (!IsAnyDigit(CanonicalText[Start])
+            && !ChineseIntegerCharacters.Contains(FString::Chr(CanonicalText[Start]))) continue;
+        int32 End = Start + 1;
+        while (End < CanonicalText.Len() && (IsAnyDigit(CanonicalText[End])
+            || ChineseIntegerCharacters.Contains(FString::Chr(CanonicalText[End])))) ++End;
+        int64 Actual = 0;
+        if (TryParseSurfaceInteger(CanonicalText.Mid(Start, End - Start), Actual) && Actual == Expected)
+            return true;
+        Start = End - 1;
+    }
+    return false;
+}
+
 bool BuildTokenSet(const TArray<FString>& Tokens, TSet<FString>& OutTokens)
 {
     for (const FString& Token : Tokens)
     {
-        const FString Canonical = Token.TrimStartAndEnd().ToLower();
+        const FString Canonical = NormalizeCompatibilityText(Token);
         if (Canonical.IsEmpty() || OutTokens.Contains(Canonical)) return false;
         OutTokens.Add(Canonical);
     }
     return true;
 }
 
-bool SetsEqual(const TSet<FString>& A, const TSet<FString>& B)
+TSet<FString> FindTokensPresentInText(const FString& Text, const TSet<FString>& Tokens)
 {
-    if (A.Num() != B.Num()) return false;
-    for (const FString& Value : A) if (!B.Contains(Value)) return false;
-    return true;
-}
-
-bool TextContainsAll(const FString& Text, const TSet<FString>& Tokens)
-{
+    TSet<FString> Present;
+    const FString CanonicalText = NormalizeCompatibilityText(Text);
     for (const FString& Token : Tokens)
     {
-        if (!Text.Contains(Token, ESearchCase::IgnoreCase)) return false;
+        const FString Canonical = NormalizeCompatibilityText(Token);
+        if (!Canonical.IsEmpty() && CanonicalText.Contains(Canonical)) Present.Add(Canonical);
     }
-    return true;
+    return Present;
 }
 
-bool IsAsciiDigit(TCHAR Character)
+bool IsChineseNumberCharacter(TCHAR Character)
 {
-    return Character >= TEXT('0') && Character <= TEXT('9');
+    static const FString Characters = TEXT("零〇一二两三四五六七八九十百千万亿半数几多余约");
+    return Characters.Contains(FString::Chr(Character));
 }
 
-TSet<FString> ExtractNumericTokens(const FString& Text)
+bool IsNumericContinuation(TCHAR Character)
 {
-    TSet<FString> Result;
-    for (int32 Index = 0; Index < Text.Len(); ++Index)
+    return IsAnyDigit(Character) || IsChineseNumberCharacter(Character)
+        || Character == TEXT('.') || Character == TEXT('+') || Character == TEXT('-')
+        || Character == TEXT('~') || Character == TEXT('至') || Character == TEXT('到');
+}
+
+bool HasNumericBoundary(const FString& Text, int32 Start, int32 Length)
+{
+    const bool bLeftClear = Start <= 0 || !IsNumericContinuation(Text[Start - 1]);
+    const int32 End = Start + Length;
+    const bool bRightClear = End >= Text.Len() || !IsNumericContinuation(Text[End]);
+    return bLeftClear && bRightClear;
+}
+
+bool ContainsNumberToken(const FString& CanonicalText, const FString& CanonicalToken)
+{
+    int32 Start = CanonicalText.Find(CanonicalToken, ESearchCase::CaseSensitive);
+    while (Start != INDEX_NONE)
     {
-        const bool bHasSign = (Text[Index] == TEXT('-') || Text[Index] == TEXT('+'))
-            && Index + 1 < Text.Len() && IsAsciiDigit(Text[Index + 1])
-            && (Index == 0 || !IsAsciiDigit(Text[Index - 1]));
-        if (!IsAsciiDigit(Text[Index]) && !bHasSign) continue;
-
-        const int32 Start = Index;
-        if (bHasSign) ++Index;
-        while (Index + 1 < Text.Len() && IsAsciiDigit(Text[Index + 1])) ++Index;
-        if (Index + 2 < Text.Len() && Text[Index + 1] == TEXT('.') && IsAsciiDigit(Text[Index + 2]))
-        {
-            Index += 2;
-            while (Index + 1 < Text.Len() && IsAsciiDigit(Text[Index + 1])) ++Index;
-        }
-        Result.Add(Text.Mid(Start, Index - Start + 1));
-    }
-    return Result;
-}
-
-TSet<FString> FilterMachineNumericTokens(const TSet<FString>& DeclaredTokens)
-{
-    TSet<FString> Result;
-    for (const FString& Token : DeclaredTokens)
-    {
-        const TSet<FString> Parsed = ExtractNumericTokens(Token);
-        if (Parsed.Num() == 1 && Parsed.Contains(Token)) Result.Add(Token);
-    }
-    return Result;
-}
-
-bool TextIsNegated(const FString& Text)
-{
-    static const TCHAR* Markers[] = {TEXT("没有"), TEXT("并非"), TEXT("不是"), TEXT("从未"), TEXT("未曾"),
-        TEXT("并未"), TEXT("尚未"), TEXT("绝非"), TEXT("无一"), TEXT(" never "), TEXT(" not "), TEXT(" no ")};
-    const FString Padded = TEXT(" ") + Text.ToLower() + TEXT(" ");
-    for (const TCHAR* Marker : Markers)
-    {
-        if (Padded.Contains(Marker)) return true;
+        if (HasNumericBoundary(CanonicalText, Start, CanonicalToken.Len())) return true;
+        Start = CanonicalText.Find(CanonicalToken, ESearchCase::CaseSensitive,
+            ESearchDir::FromStart, Start + 1);
     }
     return false;
+}
+
+TSet<FString> FindProtectedNumbersPresentInText(
+    const FString& Text, const TSet<FString>& AllowedNumbers)
+{
+    TSet<FString> Present;
+    const FString CanonicalText = NormalizeCompatibilityText(Text);
+    for (const FString& Number : AllowedNumbers)
+    {
+        const FString Canonical = NormalizeNumberToken(Number);
+        if (!Canonical.IsEmpty() && ContainsEquivalentNumberToken(CanonicalText, Canonical))
+            Present.Add(Canonical);
+    }
+    return Present;
 }
 
 bool ContainsUndeclaredProtectedToken(const FString& Text, const TArray<FString>& Lexicon,
     const TSet<FString>& DeclaredTokens)
 {
-    const FString CanonicalText = Text.ToLower();
+    const FString CanonicalText = NormalizeCompatibilityText(Text);
+    TArray<FString> SortedLexicon;
     for (const FString& Token : Lexicon)
     {
-        const FString Canonical = Token.TrimStartAndEnd().ToLower();
+        const FString Canonical = NormalizeCompatibilityText(Token);
+        if (!Canonical.IsEmpty()) SortedLexicon.AddUnique(Canonical);
+    }
+    SortedLexicon.Sort([](const FString& A, const FString& B) { return A.Len() > B.Len(); });
+    for (const FString& Canonical : SortedLexicon)
+    {
         if (Canonical.IsEmpty() || DeclaredTokens.Contains(Canonical)) continue;
 
         int32 TokenStart = CanonicalText.Find(Canonical, ESearchCase::CaseSensitive);
@@ -130,6 +264,25 @@ bool ContainsUndeclaredProtectedToken(const FString& Text, const TArray<FString>
     }
     return false;
 }
+
+bool ContainsUndeclaredProtectedNumber(const FString& Text, const TArray<FString>& Lexicon,
+    const TSet<FString>& AllowedNumbersPresent)
+{
+    const FString CanonicalText = NormalizeCompatibilityText(Text);
+    TArray<FString> SortedLexicon;
+    for (const FString& Token : Lexicon)
+    {
+        const FString Canonical = NormalizeNumberToken(Token);
+        if (!Canonical.IsEmpty()) SortedLexicon.AddUnique(Canonical);
+    }
+    SortedLexicon.Sort([](const FString& A, const FString& B) { return A.Len() > B.Len(); });
+    for (const FString& Canonical : SortedLexicon)
+    {
+        if (AllowedNumbersPresent.Contains(Canonical)) continue;
+        if (ContainsEquivalentNumberToken(CanonicalText, Canonical)) return true;
+    }
+    return false;
+}
 }
 
 FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
@@ -153,9 +306,18 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
     Result.ValidatedScopeFingerprint = KnowledgeView.ScopeFingerprint;
 
     TMap<FName, const FKnowledgeFact*> AllowedFacts;
+    TSet<FString> AllAllowedEntities;
+    TSet<FString> AllAllowedNumbers;
     for (const FKnowledgeDocument& Document : KnowledgeView.AllowedDocuments)
     {
-        for (const FKnowledgeFact& Fact : Document.Facts) AllowedFacts.Add(Fact.FactId, &Fact);
+        for (const FKnowledgeFact& Fact : Document.Facts)
+        {
+            AllowedFacts.Add(Fact.FactId, &Fact);
+            for (const FString& Entity : Fact.Entities)
+                AllAllowedEntities.Add(NormalizeCompatibilityText(Entity));
+            for (const FString& Number : Fact.Numbers)
+                AllAllowedNumbers.Add(NormalizeNumberToken(Number));
+        }
     }
 
     FString FirstBlockError;
@@ -165,8 +327,11 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
     {
         TSet<FString> ClaimedEntities;
         TSet<FString> ClaimedNumbers;
+        const bool bUncitedRoleplay = Claim.EvidenceFactIds.IsEmpty()
+            && IsValid(Policy) && Policy->bAllowUncitedRoleplay;
         const bool bMalformed = Claim.ClaimId.IsNone() || Claim.Text.TrimStartAndEnd().IsEmpty()
-            || SeenClaimIds.Contains(Claim.ClaimId) || Claim.EvidenceFactIds.IsEmpty()
+            || SeenClaimIds.Contains(Claim.ClaimId)
+            || (Claim.EvidenceFactIds.IsEmpty() && !bUncitedRoleplay)
             || !BuildTokenSet(Claim.ClaimedEntities, ClaimedEntities)
             || !BuildTokenSet(Claim.ClaimedNumbers, ClaimedNumbers);
         SeenClaimIds.Add(Claim.ClaimId);
@@ -174,8 +339,6 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
         bool bGrounded = !bMalformed;
         FString ClaimError = bMalformed ? TEXT("dialogue_claim_malformed") : FString();
         TSet<FName> SeenEvidenceIds;
-        TSet<FString> FactEntities;
-        TSet<FString> FactNumbers;
         TOptional<bool> FactNegated;
         for (const FName EvidenceId : Claim.EvidenceFactIds)
         {
@@ -188,8 +351,6 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
             }
             SeenEvidenceIds.Add(EvidenceId);
             const FKnowledgeFact& Fact = **FactPtr;
-            for (const FString& Entity : Fact.Entities) FactEntities.Add(Entity.TrimStartAndEnd().ToLower());
-            for (const FString& Number : Fact.Numbers) FactNumbers.Add(Number.TrimStartAndEnd().ToLower());
             if (FactNegated.IsSet() && FactNegated.GetValue() != Fact.bNegated)
             {
                 bGrounded = false;
@@ -199,33 +360,33 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
             FactNegated = Fact.bNegated;
         }
 
-        if (bGrounded && (!SetsEqual(ClaimedEntities, FactEntities)
-            || !TextContainsAll(Claim.Text, ClaimedEntities)
-            || (IsValid(Policy) && ContainsUndeclaredProtectedToken(
-                Claim.Text, Policy->ProtectedEntityLexicon, ClaimedEntities))))
+        // Model-authored citations and metadata are not authorization sources. The mechanical
+        // gate limits protected tokens to the complete current authorized view; the independent
+        // semantic reviewer decides whether the resulting natural-language claim is entailed.
+        const TSet<FString> EffectiveEntities = FindTokensPresentInText(Claim.Text, AllAllowedEntities);
+        if (bGrounded && IsValid(Policy) && ContainsUndeclaredProtectedToken(
+            Claim.Text, Policy->ProtectedEntityLexicon, EffectiveEntities))
         {
             bGrounded = false;
-            ClaimError = TEXT("dialogue_claim_entity_mismatch");
+            ClaimError = bUncitedRoleplay
+                ? TEXT("dialogue_claim_uncited_roleplay_unsafe")
+                : TEXT("dialogue_claim_entity_mismatch");
         }
-        if (bGrounded && (!SetsEqual(ClaimedNumbers, FactNumbers)
-            || !TextContainsAll(Claim.Text, ClaimedNumbers)
-            || !SetsEqual(ExtractNumericTokens(Claim.Text), FilterMachineNumericTokens(ClaimedNumbers))
-            || (IsValid(Policy) && ContainsUndeclaredProtectedToken(
-                Claim.Text, Policy->ProtectedNumberLexicon, ClaimedNumbers))))
+        const TSet<FString> EffectiveNumbers =
+            FindProtectedNumbersPresentInText(Claim.Text, AllAllowedNumbers);
+        if (bGrounded && IsValid(Policy) && ContainsUndeclaredProtectedNumber(
+            Claim.Text, Policy->ProtectedNumberLexicon, EffectiveNumbers))
         {
             bGrounded = false;
-            ClaimError = TEXT("dialogue_claim_number_mismatch");
-        }
-        if (bGrounded && (Claim.bNegated != FactNegated.Get(false)
-            || TextIsNegated(Claim.Text) != Claim.bNegated))
-        {
-            bGrounded = false;
-            ClaimError = TEXT("dialogue_claim_negation_mismatch");
+            ClaimError = bUncitedRoleplay
+                ? TEXT("dialogue_claim_uncited_roleplay_unsafe")
+                : TEXT("dialogue_claim_number_mismatch");
         }
 
         if (bGrounded)
         {
             Result.AllowedClaimIds.Add(Claim.ClaimId);
+            Result.AllowedClaims.Add(Claim);
             AllowedTexts.Add(Claim.Text);
         }
         else
@@ -241,6 +402,7 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
     if (bRejectWholeResponse)
     {
         Result.AllowedClaimIds.Reset();
+        Result.AllowedClaims.Reset();
         AllowedTexts.Reset();
     }
 

@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -39,9 +37,27 @@ public:
     UPROPERTY(BlueprintAssignable, Category="AI NPC") FAiNpcFinalReplySignature OnFinalReply;
 
     UFUNCTION(BlueprintCallable, Category="AI NPC") FGuid SendPlayerMessage(const FString& PlayerText, FString& OutError);
+    /** Idempotent request entry point. Reusing the same id, input and knowledge epoch never calls the provider twice. */
+    UFUNCTION(BlueprintCallable, Category="AI NPC|Request")
+    FGuid SendPlayerMessageWithClientRequestId(
+        const FString& PlayerText, FGuid ClientRequestId, FString& OutError);
+    UFUNCTION(BlueprintPure, Category="AI NPC|Request")
+    bool IsClientRequestPending(FGuid ClientRequestId) const;
+    UFUNCTION(BlueprintPure, Category="AI NPC|Request")
+    bool TryGetClientRequestResult(FGuid ClientRequestId, FAiNpcFinalReply& OutReply) const;
+    UFUNCTION(BlueprintPure, Category="AI NPC|Request")
+    bool HasPendingRequest() const { return !PendingTurns.IsEmpty(); }
+    /** Atomically replaces the persona captured by the provider session. Pending replies from the old session are ignored. */
+    UFUNCTION(BlueprintCallable, Category="AI NPC")
+    bool ApplyPersona(const FAiNpcPersona& NewPersona, bool bClearTranscript, FString& OutError);
     UFUNCTION(BlueprintPure, Category="AI NPC") FGuid GetLocalSessionId() const { return SessionId; }
+    UFUNCTION(BlueprintPure, Category="AI NPC") int32 GetPersonaRevision() const { return PersonaRevision; }
     UFUNCTION(BlueprintPure, Category="AI NPC|Privacy") TArray<FAiNpcLocalTurn> GetLocalTranscript() const { return LocalTranscript; }
     UFUNCTION(BlueprintCallable, Category="AI NPC|Privacy") void ClearLocalTranscript();
+    /** Selects one current-view FactId deterministically; it never invents or rewrites fact text. */
+    static FString BuildAuthorizedFactFallback(
+        const FString& PlayerText, const FDialogueKnowledgeView& KnowledgeView,
+        const FText& DefaultFallback, TArray<FName>& OutEvidenceFactIds);
 
 protected:
     virtual void BeginPlay() override;
@@ -51,12 +67,31 @@ private:
     struct FPendingTurn
     {
         FString PlayerText;
+        FString InputHash;
+        FString AuthorizedContext;
         FDialogueKnowledgeView KnowledgeView;
+        FGuid OriginalRequestId;
+        FGuid ClientRequestId;
+        int32 PersonaRevision = 0;
+        bool bProviderRetryAttempted = false;
+        bool bFormatRepairAttempted = false;
+    };
+
+    struct FClientRequestRecord
+    {
+        FString InputHash;
+        FGuid AuthorizationEpoch;
+        int64 ScopeFingerprint = 0;
+        FGuid OriginalRequestId;
+        bool bCompleted = false;
+        FAiNpcFinalReply CompletedReply;
     };
 
     UPROPERTY(Transient) FGuid SessionId;
+    UPROPERTY(Transient) int32 PersonaRevision = 1;
     UPROPERTY(Transient) TArray<FAiNpcLocalTurn> LocalTranscript;
     TMap<FGuid, FPendingTurn> PendingTurns;
+    TMap<FGuid, FClientRequestRecord> ClientRequests;
     TMap<FString, FGuid> SemanticToProviderRequest;
 
     UFUNCTION() void HandleProviderCompleted(FAiNpcProviderResult Result);
@@ -65,6 +100,23 @@ private:
 
     UAiNpcProviderSubsystem* GetProviderSubsystem() const;
     FString BuildAuthorizedContext(const FDialogueKnowledgeView& View) const;
-    void BroadcastFallback(FGuid RequestId, const FString& Error, const FText& Fallback);
+    FString BuildDeterministicAuthorizedFallback(
+        const FPendingTurn* Turn, const FText& DefaultFallback, TArray<FName>& OutEvidenceFactIds) const;
+    void BroadcastFallback(FGuid RequestId, const FString& Error, const FText& Fallback,
+        const FPendingTurn* Turn = nullptr);
+    void StampReplyFromTurn(FAiNpcFinalReply& Reply, const FPendingTurn* Turn) const;
+    void CacheCompletedReply(const FPendingTurn* Turn, const FAiNpcFinalReply& Reply);
+    bool TryResolveExistingClientRequest(
+        FGuid ClientRequestId, const FString& InputHash,
+        const FDialogueKnowledgeView& View, FGuid& OutRequestId, FString& OutError) const;
+    bool IsPendingTurnCurrent(const FPendingTurn& Turn, FString& OutError) const;
+    bool CorrelateSemanticRequest(const FString& ReviewRequestId, FGuid DialogueRequestId);
+    void DiscardStaleTurn(FGuid ProviderRequestId, const FPendingTurn& Turn, const FString& Error);
     void StoreApprovedTurn(const FString& PlayerText, const FString& NpcText);
+
+#if WITH_DEV_AUTOMATION_TESTS
+    friend class FKnowledgeRequestIdempotencyTest;
+    friend class FKnowledgeStaleResponseRejectionTest;
+    friend class FKnowledgeSemanticRequestCorrelationTest;
+#endif
 };

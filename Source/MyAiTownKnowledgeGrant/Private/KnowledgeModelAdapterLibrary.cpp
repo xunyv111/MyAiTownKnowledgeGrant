@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #include "KnowledgeModelAdapterLibrary.h"
 
 #include "KnowledgeContextCollectorComponent.h"
@@ -60,7 +58,8 @@ bool ReadStringArray(const TSharedPtr<FJsonObject>& Object, const TCHAR* FieldNa
     return true;
 }
 
-bool ParseClaims(const FString& JsonPayload, TArray<FKnowledgeDialogueClaim>& OutClaims, FString& OutError)
+bool ParseClaims(const FString& JsonPayload, bool bAllowUncitedRoleplay,
+    TArray<FKnowledgeDialogueClaim>& OutClaims, FString& OutError)
 {
     if (JsonPayload.TrimStartAndEnd().IsEmpty())
     {
@@ -102,7 +101,6 @@ bool ParseClaims(const FString& JsonPayload, TArray<FKnowledgeDialogueClaim>& Ou
     const TSet<FString> ClaimFields{
         TEXT("claimId"), TEXT("text"), TEXT("evidenceFactIds"),
         TEXT("claimedEntities"), TEXT("claimedNumbers"), TEXT("negated")};
-    TSet<FName> SeenClaimIds;
     for (const TSharedPtr<FJsonValue>& JsonClaimValue : *JsonClaims)
     {
         const TSharedPtr<FJsonObject>* JsonClaimObject = nullptr;
@@ -125,8 +123,7 @@ bool ParseClaims(const FString& JsonPayload, TArray<FKnowledgeDialogueClaim>& Ou
         }
         ClaimIdText = ClaimIdText.TrimStartAndEnd();
         ClaimText = ClaimText.TrimStartAndEnd();
-        const FName ClaimId(*ClaimIdText);
-        if (ClaimId.IsNone() || ClaimIdText.Len() > MaxIdCharacters || SeenClaimIds.Contains(ClaimId))
+        if (ClaimIdText.IsEmpty() || ClaimIdText.Len() > MaxIdCharacters)
         {
             OutError = TEXT("model_json_claim_invalid");
             return false;
@@ -140,7 +137,8 @@ bool ParseClaims(const FString& JsonPayload, TArray<FKnowledgeDialogueClaim>& Ou
         TArray<FString> FactIds;
         TArray<FString> Entities;
         TArray<FString> Numbers;
-        if (!ReadStringArray(*JsonClaimObject, TEXT("evidenceFactIds"), MaxEvidenceFacts, FactIds, true))
+        if (!ReadStringArray(*JsonClaimObject, TEXT("evidenceFactIds"), MaxEvidenceFacts,
+            FactIds, !bAllowUncitedRoleplay))
         {
             OutError = TEXT("model_json_evidence_invalid");
             return false;
@@ -153,14 +151,13 @@ bool ParseClaims(const FString& JsonPayload, TArray<FKnowledgeDialogueClaim>& Ou
         }
 
         FKnowledgeDialogueClaim Claim;
-        Claim.ClaimId = ClaimId;
+        Claim.ClaimId = FName(*FString::Printf(TEXT("claim-%04d"), OutClaims.Num() + 1));
         Claim.Text = MoveTemp(ClaimText);
         for (const FString& FactId : FactIds) Claim.EvidenceFactIds.Add(FName(*FactId));
         Claim.ClaimedEntities = MoveTemp(Entities);
         Claim.ClaimedNumbers = MoveTemp(Numbers);
         Claim.bNegated = bNegated;
         OutClaims.Add(MoveTemp(Claim));
-        SeenClaimIds.Add(ClaimId);
     }
 
     OutError.Empty();
@@ -184,7 +181,8 @@ FKnowledgeDialogueGuardResult UKnowledgeModelAdapterLibrary::GuardKnowledgeModel
 
     TArray<FKnowledgeDialogueClaim> Claims;
     FString ParseError;
-    if (!ParseClaims(JsonPayload, Claims, ParseError))
+    const bool bAllowUncitedRoleplay = IsValid(GuardPolicy) && GuardPolicy->bAllowUncitedRoleplay;
+    if (!ParseClaims(JsonPayload, bAllowUncitedRoleplay, Claims, ParseError))
     {
         return BlockedResult(ParseError, IsValid(GuardPolicy) ? GuardPolicy->MalformedOutputText : FText::GetEmpty());
     }
@@ -223,7 +221,8 @@ FKnowledgeDialogueGuardResult UKnowledgeModelAdapterLibrary::GuardKnowledgeModel
 
     TArray<FKnowledgeDialogueClaim> Claims;
     FString ParseError;
-    if (!ParseClaims(JsonPayload, Claims, ParseError))
+    const bool bAllowUncitedRoleplay = IsValid(GuardPolicy) && GuardPolicy->bAllowUncitedRoleplay;
+    if (!ParseClaims(JsonPayload, bAllowUncitedRoleplay, Claims, ParseError))
     {
         return BlockedResult(ParseError, IsValid(GuardPolicy) ? GuardPolicy->MalformedOutputText : FText::GetEmpty());
     }

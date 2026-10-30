@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -46,6 +44,13 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge", meta = (MultiLine = true))
     FText MalformedOutputText;
 
+    /**
+     * Allows uncited conversational lines only when they contain no protected
+     * entities, numbers, negation, or declared fact metadata. Disabled by default.
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Roleplay")
+    bool bAllowUncitedRoleplay = false;
+
     /** Host-authored vocabulary used to catch protected proper nouns omitted from claim metadata. */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Fact Guard")
     TArray<FString> ProtectedEntityLexicon;
@@ -84,6 +89,8 @@ struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeDialogueGuardResult
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") FString Error;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") TArray<FName> AllowedClaimIds;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge") TArray<FName> BlockedClaimIds;
+    /** Plugin-assigned atomic claims carried into the independent semantic review contract. */
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge") TArray<FKnowledgeDialogueClaim> AllowedClaims;
 };
 
 /** Mechanical post-generation gate. Raw model text must never bypass SafeText. */

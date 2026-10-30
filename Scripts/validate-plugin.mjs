@@ -121,7 +121,7 @@ if (fs.existsSync(path.join(root, grantComponentSource))) {
 const arpgAdapterSource = "Source/MyAiTownKnowledgeGrant/Private/ArpgKnowledgeGrantAdapterComponent.cpp";
 if (fs.existsSync(path.join(root, arpgAdapterSource))) {
   const adapter = read(arpgAdapterSource);
-  for (const marker of ["ResolveCompletedQuest", "arpg_registry_pack_mismatch", "debug_quest_event_rejected", "quest_not_completed", "stable_player_id_invalid", "quest_completion_revision_stale", "BuildGrantEventId", "OnGrantAudited"]) {
+  for (const marker of ["ResolveQuestAuthority", "Execute_ResolveCompletedQuest", "arpg_registry_pack_mismatch", "debug_quest_event_rejected", "quest_not_completed", "stable_player_id_invalid", "quest_completion_revision_stale", "BuildGrantEventId", "OnGrantAudited"]) {
     if (!adapter.includes(marker)) errors.push(`ARPG adapter is missing invariant: ${marker}`);
   }
 }
@@ -129,7 +129,7 @@ if (fs.existsSync(path.join(root, arpgAdapterSource))) {
 const semanticReviewSource = "Source/MyAiTownKnowledgeGrant/Private/KnowledgeSemanticReviewComponent.cpp";
 if (fs.existsSync(path.join(root, semanticReviewSource))) {
   const semantic = read(semanticReviewSource);
-  for (const marker of ["BeginSemanticReview", "CompleteSemanticReview", "ValidatedScopeFingerprint", "semantic_review_timeout", "semantic_review_coverage_invalid", "ValidateDialogueKnowledgeView", "FinalApprovedText", "OnSemanticReviewRequested", "OnSemanticReviewCompleted"]) {
+  for (const marker of ["BeginSemanticReview", "CompleteSemanticReview", "ValidatedScopeFingerprint", "semantic_review_timeout", "semantic_review_assessment_invalid", "ClaimAssessments", "ValidateDialogueKnowledgeView", "FinalApprovedText", "OnSemanticReviewRequested", "OnSemanticReviewCompleted"]) {
     if (!semantic.includes(marker)) errors.push(`semantic review coordinator is missing invariant: ${marker}`);
   }
   for (const forbidden of ["OpenAI", "Anthropic", "Authorization: Bearer", "FHttpModule"]) {
@@ -151,8 +151,11 @@ if (fs.existsSync(path.join(root, providerSource))) {
 const npcDialogueSource = "Source/MyAiTownKnowledgeGrant/Private/AiNpcDialogueComponent.cpp";
 if (fs.existsSync(path.join(root, npcDialogueSource))) {
   const dialogue = read(npcDialogueSource);
-  for (const marker of ["OpenNpcSession", "BuildDialogueKnowledgeView", "GuardKnowledgeModelJsonResponseForCollectors", "BeginSemanticReview", "FinalApprovedText", "LocalTranscript"]) {
+  for (const marker of ["OpenNpcSession", "BuildDialogueKnowledgeView", "GuardKnowledgeModelJsonResponseForCollectors", "BeginSemanticReview", "FinalApprovedText", "LocalTranscript", "TryResolveExistingClientRequest", "IsPendingTurnCurrent", "CorrelateSemanticRequest", "DiscardStaleTurn"]) {
     if (!dialogue.includes(marker)) errors.push(`AI NPC dialogue component is missing invariant: ${marker}`);
+  }
+  for (const forbidden of ["StartingSemanticForProviderRequest"]) {
+    if (dialogue.includes(forbidden)) errors.push(`AI NPC dialogue component retains unstable correlation state: ${forbidden}`);
   }
 }
 
@@ -167,7 +170,7 @@ if (fs.existsSync(path.join(root, resolverSource))) {
 const dialogueGuardSource = "Source/MyAiTownKnowledgeGrant/Private/KnowledgeDialogueGuardLibrary.cpp";
 if (fs.existsSync(path.join(root, dialogueGuardSource))) {
   const guard = read(dialogueGuardSource);
-  for (const marker of ["GuardDialogueKnowledgeView", "EvidenceFactIds.IsEmpty", "dialogue_claim_fact_not_grounded", "dialogue_claim_entity_mismatch", "dialogue_claim_number_mismatch", "dialogue_claim_negation_mismatch", "AllOrNothing", "PolicyText", "ExtractNumericTokens", "FilterMachineNumericTokens", "PartiallyAllowed", "dialogue_claims_empty"]) {
+  for (const marker of ["GuardDialogueKnowledgeView", "EvidenceFactIds.IsEmpty", "dialogue_claim_fact_not_grounded", "dialogue_claim_entity_mismatch", "dialogue_claim_number_mismatch", "dialogue_claim_negation_mismatch", "AllOrNothing", "PolicyText", "NormalizeNumberToken", "ContainsEquivalentNumberToken", "FindProtectedNumbersPresentInText", "PartiallyAllowed", "dialogue_claims_empty"]) {
     if (!guard.includes(marker)) errors.push(`dialogue guard is missing invariant: ${marker}`);
   }
   for (const forbidden of ["bKnowledgeBearing", "BlockedFallback", "EvidenceDocumentIds", "ResolveAllUnlockedKnowledge", "FilterGroundedDialogueForContextTags"]) {
@@ -178,14 +181,17 @@ if (fs.existsSync(path.join(root, dialogueGuardSource))) {
 const testSource = "Source/MyAiTownKnowledgeGrant/Private/Tests/KnowledgeGrantTests.cpp";
 if (fs.existsSync(path.join(root, testSource))) {
   const tests = read(testSource);
-  for (const marker of ["Locked documents never enter", "Another player remains locked", "Repeated completion is idempotent", "Grant event identifiers are normalized", "Reusing one grant event identifier for a different pack fails explicitly", "An invalid but ungranted candidate does not fail", "Knowledge survives save and restore", "A different quest cannot grant", "A registry-matched snapshot restores successfully", "Restore derives both unlock tags from registered packs", "A cross-version snapshot is rejected", "Forged snapshot tags are rejected instead of trusted", "A snapshot missing its prerequisite closure is rejected", "An unregistered snapshot pack is rejected", "A cyclic prerequisite registry is rejected during restore", "Every failed restore preserves the pre-existing granted pack", "A granted pack without grant history is rejected", "Grant history cannot refer to a pack outside the authorized state", "Restore advances revision even when the snapshot carries the current revision", "A pre-restore view is rejected", "A later domino cannot fall before its prerequisite", "Rejected future event leaks no future document", "Unsupported factual claim is blocked after generation", "Every model claim without evidence fails closed", "The same claim is allowed only after its evidence unlocks", "A proper-noun mismatch is blocked mechanically", "A protected proper noun omitted from claim metadata is blocked", "A shorter protected entity occurring outside its declared longer token is blocked", "A numeric mismatch is blocked mechanically", "A numeric sign reversal is blocked", "A decimal is treated as one numeric token", "A host-declared Chinese written number is accepted", "The positive word bucuo is not treated", "A negation mismatch is blocked mechanically", "Malformed JSON fails closed", "Unknown rawText never reaches SafeText", "Empty FactId evidence is rejected by the adapter contract", "Duplicate FactId evidence is rejected", "A protected entity omitted from parsed metadata still fails the fact guard", "Overlong claim text is rejected before the fact guard", "Overlapping scene sources are unioned", "Updating one scene source replaces its previous tags", "A stale interaction end cannot clear the newer target", "Explicit proper-noun context is added", "Reset removes every context source", "North gate marker activates its information library", "Output guard blocks a fact from an inactive scene library", "A view from the previous scene is rejected", "Matching scene marker never grants an unobserved future fact", "All-or-nothing policy removes otherwise valid claims", "A view is rejected after player knowledge revision changes", "A view with a modified consistency checksum is rejected"]) {
+  for (const marker of ["Locked documents never enter", "Another player remains locked", "Repeated completion is idempotent", "Grant event identifiers are normalized", "Reusing one grant event identifier for a different pack fails explicitly", "An invalid but ungranted candidate does not fail", "Knowledge survives save and restore", "A different quest cannot grant", "A registry-matched snapshot restores successfully", "Restore derives both unlock tags from registered packs", "A cross-version snapshot is rejected", "Forged snapshot tags are rejected instead of trusted", "A snapshot missing its prerequisite closure is rejected", "An unregistered snapshot pack is rejected", "A cyclic prerequisite registry is rejected during restore", "Every failed restore preserves the pre-existing granted pack", "A granted pack without grant history is rejected", "Grant history cannot refer to a pack outside the authorized state", "Restore advances revision even when the snapshot carries the current revision", "A pre-restore view is rejected", "A later domino cannot fall before its prerequisite", "Rejected future event leaks no future document", "Unsupported factual claim is blocked after generation", "Every model claim without evidence fails closed", "The same claim is allowed only after its evidence unlocks", "A proper-noun mismatch is blocked mechanically", "A protected proper noun omitted from claim metadata is blocked", "A shorter protected entity occurring outside its declared longer token is blocked", "An unavailable host-protected number is blocked mechanically", "A numeric sign reversal is deferred to the semantic relation gate", "A decimal is treated as one numeric token", "A host-declared Chinese written number is accepted", "The positive word bucuo is not treated", "Natural-language negation is deferred to the independent semantic reviewer", "Malformed JSON fails closed", "Unknown rawText never reaches SafeText", "Empty FactId evidence is rejected by the adapter contract", "Duplicate FactId evidence is rejected", "Overlong claim text is rejected before the fact guard", "Overlapping scene sources are unioned", "Updating one scene source replaces its previous tags", "A stale interaction end cannot clear the newer target", "Explicit proper-noun context is added", "Reset removes every context source", "North gate marker activates its information library", "Output guard blocks a fact from an inactive scene library", "A view from the previous scene is rejected", "Matching scene marker never grants an unobserved future fact", "All-or-nothing policy removes otherwise valid claims", "A view is rejected after player knowledge revision changes", "A view with a modified consistency checksum is rejected"]) {
     if (!tests.includes(marker)) errors.push(`automation coverage marker missing: ${marker}`);
   }
   for (const marker of ["A mechanical result from another dialogue view cannot enter semantic review", "A provider-neutral semantic request is created", "A complete external approval releases FinalApprovedText", "An API response is rejected after authorization changes while in flight", "A semantic rejection fails closed to the trusted policy text"]) {
     if (!tests.includes(marker)) errors.push(`semantic review coverage marker missing: ${marker}`);
   }
-  for (const marker of ["Remote transmission requires explicit player consent", "Plain HTTP to a remote vendor is rejected", "No API key field exists in the serialized body", "The provider request is deterministic and contains only current-turn inputs", "The reviewer response accepts only the structured decision contract"]) {
+  for (const marker of ["Remote transmission requires explicit player consent", "Plain HTTP to a remote vendor is rejected", "No API key field exists in the serialized body", "The provider request is deterministic and contains only current-turn inputs", "The reviewer response accepts only the per-claim gate contract"]) {
     if (!tests.includes(marker)) errors.push(`AI NPC provider coverage marker missing: ${marker}`);
+  }
+  for (const marker of ["QuestAuthorityBlueprintDispatch", "SemanticRequestCorrelation", "RequestIdempotency", "StaleResponseRejection", "MultiProviderRouting", "DialogueFormatRepair", "DeterministicAuthorizedFallback", "SemanticClaimGates"]) {
+    if (!tests.includes(marker)) errors.push(`independent enhancement test missing: ${marker}`);
   }
 }
 

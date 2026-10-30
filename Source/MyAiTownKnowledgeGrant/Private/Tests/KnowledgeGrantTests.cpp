@@ -1,10 +1,8 @@
-// Copyright 2026 xunyv.
-
 #if WITH_DEV_AUTOMATION_TESTS
 
-#include "Engine/GameInstance.h"
 #include "GameFramework/Actor.h"
 #include "ArpgKnowledgeGrantAdapterComponent.h"
+#include "AiNpcDialogueComponent.h"
 #include "AiNpcProviderSubsystem.h"
 #include "KnowledgeGrantComponent.h"
 #include "KnowledgeDialogueGuardLibrary.h"
@@ -15,8 +13,10 @@
 #include "KnowledgeReaction.h"
 #include "KnowledgeResolverLibrary.h"
 #include "KnowledgeSemanticReviewComponent.h"
+#include "Engine/GameInstance.h"
 #include "Misc/AutomationTest.h"
 #include "NpcKnowledgeReceiverComponent.h"
+#include "Tests/KnowledgeGrantTestTypes.h"
 
 namespace
 {
@@ -119,6 +119,29 @@ UKnowledgeDialogueGuardPolicy* MakeGuardPolicy(EKnowledgeDialogueGuardMode Mode 
     Policy->MalformedOutputText = FText::FromString(TEXT("回答格式无效。"));
     Policy->ProtectedEntityLexicon = {TEXT("王廷"), TEXT("王廷秘印"), TEXT("议会"), TEXT("议会秘印"), TEXT("巨龙")};
     return Policy;
+}
+
+FKnowledgeSemanticClaimAssessment MakePassingAssessment(
+    FName ClaimId, const TArray<FName>& EvidenceFactIds)
+{
+    FKnowledgeSemanticClaimAssessment Assessment;
+    Assessment.ClaimId = ClaimId;
+    Assessment.ClaimType = EvidenceFactIds.IsEmpty()
+        ? EKnowledgeClaimType::NonFactual : EKnowledgeClaimType::Factual;
+    Assessment.Support = EKnowledgeClaimSupport::Supported;
+    Assessment.Contradiction = EKnowledgeClaimRisk::None;
+    Assessment.Overreach = EKnowledgeClaimRisk::None;
+    Assessment.TaskLeak = EKnowledgeClaimRisk::None;
+    Assessment.RoleFit = EKnowledgeRoleFit::Good;
+    Assessment.Confidence = EKnowledgeReviewConfidence::High;
+    Assessment.EvidenceFactIds = EvidenceFactIds;
+    Assessment.FactSupportScore = 0.95f;
+    Assessment.ContradictionRiskScore = 0.02f;
+    Assessment.OverreachRiskScore = 0.02f;
+    Assessment.TaskLeakRiskScore = 0.01f;
+    Assessment.RoleFitScore = 0.90f;
+    Assessment.ConfidenceScore = 0.95f;
+    return Assessment;
 }
 }
 
@@ -339,12 +362,58 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Claim backed by an unlocked document is allowed"), Allowed.bOk && !Allowed.bBlocked);
     TestEqual(TEXT("Grounded words survive unchanged"), Allowed.SafeText, Supported.Text);
 
+    TArray<FName> FallbackEvidence;
+    const FString AuthorizedFallback = UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
+        TEXT("王廷秘印在哪里？"), SealView, FText::FromString(TEXT("默认兜底")), FallbackEvidence);
+    TestTrue(TEXT("Deterministic fallback quotes one authorized fact and records its FactId"),
+        AuthorizedFallback.StartsWith(Seal->Documents[0].Facts[0].Statement)
+        && FallbackEvidence == TArray<FName>{FactIdForDocument(TEXT("royal_seal_found"))});
+    FDialogueKnowledgeView EmptyFallbackView;
+    TestEqual(TEXT("A view without authorized facts uses only the trusted default fallback"),
+        UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
+            TEXT("未知问题"), EmptyFallbackView, FText::FromString(TEXT("默认兜底")), FallbackEvidence),
+        FString(TEXT("默认兜底")));
+    TestTrue(TEXT("The default fallback does not claim an EvidenceFactId"), FallbackEvidence.IsEmpty());
+
     FKnowledgeDialogueClaim Uncited = Supported;
     Uncited.ClaimId = TEXT("claim.uncited");
     Uncited.EvidenceFactIds.Reset();
     TestTrue(TEXT("Every model claim without evidence fails closed"),
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
             Player, SealView, FGameplayTagContainer(), {Uncited}, MakeGuardPolicy()).bBlocked);
+
+    UKnowledgeDialogueGuardPolicy* RoleplayPolicy = MakeGuardPolicy();
+    RoleplayPolicy->bAllowUncitedRoleplay = true;
+    FKnowledgeDialogueClaim Roleplay;
+    Roleplay.ClaimId = TEXT("claim.roleplay.proposal");
+    Roleplay.Text = TEXT("先查看周围，再决定从哪里开始。");
+    const FKnowledgeDialogueGuardResult AllowedRoleplay =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, SealView, FGameplayTagContainer(), {Roleplay}, RoleplayPolicy);
+    TestTrue(TEXT("Opted-in non-factual roleplay can continue without a fact citation"),
+        AllowedRoleplay.bOk && !AllowedRoleplay.bBlocked
+        && AllowedRoleplay.SafeText == Roleplay.Text);
+
+    FKnowledgeDialogueClaim NoisyRoleplayMetadata = Roleplay;
+    NoisyRoleplayMetadata.ClaimId = TEXT("claim.roleplay.noisy_metadata");
+    NoisyRoleplayMetadata.ClaimedEntities = {TEXT("周围")};
+    NoisyRoleplayMetadata.ClaimedNumbers = {TEXT("起点")};
+    NoisyRoleplayMetadata.bNegated = true;
+    const FKnowledgeDialogueGuardResult NoisyRoleplayAllowed =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, SealView, FGameplayTagContainer(), {NoisyRoleplayMetadata}, RoleplayPolicy);
+    TestTrue(TEXT("Untrusted roleplay metadata cannot falsely block safe text"),
+        NoisyRoleplayAllowed.bOk && !NoisyRoleplayAllowed.bBlocked);
+
+    FKnowledgeDialogueClaim UnsafeRoleplay = Roleplay;
+    UnsafeRoleplay.ClaimId = TEXT("claim.roleplay.protected_entity");
+    UnsafeRoleplay.Text = TEXT("王廷已经下令，我们立刻出发。");
+    const FKnowledgeDialogueGuardResult BlockedRoleplay =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, SealView, FGameplayTagContainer(), {UnsafeRoleplay}, RoleplayPolicy);
+    TestTrue(TEXT("Uncited roleplay cannot smuggle a protected world-state assertion"),
+        BlockedRoleplay.bBlocked
+        && BlockedRoleplay.Error == TEXT("dialogue_claim_uncited_roleplay_unsafe"));
 
     FKnowledgeDialogueClaim WrongEntity = Supported;
     WrongEntity.ClaimId = TEXT("claim.wrong_entity");
@@ -371,8 +440,17 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     WrongNumber.ClaimedNumbers = {TEXT("2")};
     const FKnowledgeDialogueGuardResult NumberMismatch = UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
         Player, SealView, FGameplayTagContainer(), {WrongNumber}, MakeGuardPolicy());
-    TestTrue(TEXT("A numeric mismatch is blocked mechanically"),
-        NumberMismatch.bBlocked && NumberMismatch.Error == TEXT("dialogue_claim_number_mismatch"));
+    TestTrue(TEXT("An ordinary number is deferred to the independent semantic reviewer"),
+        NumberMismatch.bOk && !NumberMismatch.bBlocked);
+
+    UKnowledgeDialogueGuardPolicy* ProtectedNumberPolicy = MakeGuardPolicy();
+    ProtectedNumberPolicy->ProtectedNumberLexicon = {TEXT("2")};
+    const FKnowledgeDialogueGuardResult ProtectedNumberMismatch =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, SealView, FGameplayTagContainer(), {WrongNumber}, ProtectedNumberPolicy);
+    TestTrue(TEXT("An unavailable host-protected number is blocked mechanically"),
+        ProtectedNumberMismatch.bBlocked
+        && ProtectedNumberMismatch.Error == TEXT("dialogue_claim_number_mismatch"));
 
     FKnowledgeDialogueClaim WrongNegation = Supported;
     WrongNegation.ClaimId = TEXT("claim.wrong_negation");
@@ -380,8 +458,8 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     WrongNegation.bNegated = true;
     const FKnowledgeDialogueGuardResult NegationMismatch = UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
         Player, SealView, FGameplayTagContainer(), {WrongNegation}, MakeGuardPolicy());
-    TestTrue(TEXT("A negation mismatch is blocked mechanically"),
-        NegationMismatch.bBlocked && NegationMismatch.Error == TEXT("dialogue_claim_negation_mismatch"));
+    TestTrue(TEXT("Natural-language negation is deferred to the independent semantic reviewer"),
+        NegationMismatch.bOk && !NegationMismatch.bBlocked);
 
     FKnowledgeDialogueClaim PositiveWithBu = Supported;
     PositiveWithBu.ClaimId = TEXT("claim.positive.bu");
@@ -437,6 +515,35 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("The same claim is allowed only after its evidence unlocks"), LaterAllowed.bOk && !LaterAllowed.bBlocked);
     TestEqual(TEXT("Newly grounded words survive unchanged"), LaterAllowed.SafeText, Unsupported.Text);
 
+    FKnowledgeDialogueClaim PartialGrounded = Unsupported;
+    PartialGrounded.ClaimId = TEXT("claim.dragon.only");
+    PartialGrounded.Text = TEXT("巨龙确实与此事有关。");
+    PartialGrounded.ClaimedEntities = {TEXT("巨龙")};
+    const FKnowledgeDialogueGuardResult PartialAllowed =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, OriginView, FGameplayTagContainer(), {PartialGrounded}, MakeGuardPolicy());
+    TestTrue(TEXT("A claim may safely use only a subset of entities from its cited fact"),
+        PartialAllowed.bOk && !PartialAllowed.bBlocked && PartialAllowed.SafeText == PartialGrounded.Text);
+
+    FKnowledgeDialogueClaim NoisyEntityMetadata = PartialGrounded;
+    NoisyEntityMetadata.ClaimId = TEXT("claim.dragon.noisy_metadata");
+    NoisyEntityMetadata.ClaimedEntities = {TEXT("巨龙"), TEXT("此事")};
+    const FKnowledgeDialogueGuardResult NoisyMetadataAllowed =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, OriginView, FGameplayTagContainer(), {NoisyEntityMetadata}, MakeGuardPolicy());
+    TestTrue(TEXT("Untrusted extra generic entity metadata cannot falsely block grounded text"),
+        NoisyMetadataAllowed.bOk && !NoisyMetadataAllowed.bBlocked
+        && NoisyMetadataAllowed.SafeText == NoisyEntityMetadata.Text);
+
+    FKnowledgeDialogueClaim NoisyNegationMetadata = PartialGrounded;
+    NoisyNegationMetadata.ClaimId = TEXT("claim.dragon.noisy_negation_metadata");
+    NoisyNegationMetadata.bNegated = true;
+    const FKnowledgeDialogueGuardResult NoisyNegationAllowed =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, OriginView, FGameplayTagContainer(), {NoisyNegationMetadata}, MakeGuardPolicy());
+    TestTrue(TEXT("Untrusted negation metadata cannot falsely reverse positive grounded text"),
+        NoisyNegationAllowed.bOk && !NoisyNegationAllowed.bBlocked);
+
     UKnowledgePack* Numeric = MakeWorldEventPack(
         TEXT("measurements.observed"), TEXT("event.measurements.observed"), TEXT("temperature_reading"),
         TEXT("温度降至-5度。"));
@@ -469,13 +576,19 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("A signed number is preserved and accepted"),
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
             Player, NumericView, FGameplayTagContainer(), {NegativeNumber}, NumericPolicy).bOk);
+    FKnowledgeDialogueClaim NoisyNumberMetadata = NegativeNumber;
+    NoisyNumberMetadata.ClaimId = TEXT("claim.temperature.noisy_metadata");
+    NoisyNumberMetadata.ClaimedNumbers = {TEXT("999")};
+    TestTrue(TEXT("Untrusted number metadata cannot falsely block an authorized number in text"),
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, NumericView, FGameplayTagContainer(), {NoisyNumberMetadata}, NumericPolicy).bOk);
     FKnowledgeDialogueClaim SignReversal = NegativeNumber;
     SignReversal.ClaimId = TEXT("claim.temperature.sign.reversal");
     SignReversal.Text = TEXT("温度升至5度。");
     SignReversal.ClaimedNumbers = {TEXT("5")};
-    TestTrue(TEXT("A numeric sign reversal is blocked"),
+    TestTrue(TEXT("A numeric sign reversal is deferred to the semantic relation gate"),
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
-            Player, NumericView, FGameplayTagContainer(), {SignReversal}, NumericPolicy).bBlocked);
+            Player, NumericView, FGameplayTagContainer(), {SignReversal}, NumericPolicy).bOk);
 
     FKnowledgeDialogueClaim DecimalNumber;
     DecimalNumber.ClaimId = TEXT("claim.ratio.decimal");
@@ -494,6 +607,55 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("A host-declared Chinese written number is accepted"),
         UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
             Player, NumericView, FGameplayTagContainer(), {WrittenNumberClaim}, NumericPolicy).bOk);
+
+    UKnowledgeDialogueGuardPolicy* SurfaceNumberPolicy = MakeGuardPolicy();
+    SurfaceNumberPolicy->ProtectedNumberLexicon = {TEXT("2"), TEXT("二"), TEXT("3"), TEXT("三")};
+    FKnowledgeDialogueClaim ArabicEquivalent = WrittenNumberClaim;
+    ArabicEquivalent.ClaimId = TEXT("claim.written.number.arabic.equivalent");
+    ArabicEquivalent.Text = TEXT("现场有3枚封印。");
+    ArabicEquivalent.ClaimedNumbers = {TEXT("3")};
+    const FKnowledgeDialogueGuardResult ArabicEquivalentResult =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, NumericView, FGameplayTagContainer(), {ArabicEquivalent}, SurfaceNumberPolicy);
+    TestTrue(TEXT("Arabic and Chinese surface forms of the same integer are equivalent"),
+        ArabicEquivalentResult.bOk && !ArabicEquivalentResult.bBlocked);
+
+    FKnowledgeDialogueClaim DifferentQuantity = ArabicEquivalent;
+    DifferentQuantity.ClaimId = TEXT("claim.written.number.different.quantity");
+    DifferentQuantity.Text = TEXT("现场有二枚封印。");
+    DifferentQuantity.ClaimedNumbers = {TEXT("二")};
+    const FKnowledgeDialogueGuardResult DifferentQuantityResult =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, NumericView, FGameplayTagContainer(), {DifferentQuantity}, SurfaceNumberPolicy);
+    TestTrue(TEXT("A different quantity remains blocked after surface normalization"),
+        DifferentQuantityResult.bBlocked
+        && DifferentQuantityResult.Error == TEXT("dialogue_claim_number_mismatch"));
+
+    FKnowledgeDialogueClaim ChineseRange = WrittenNumberClaim;
+    ChineseRange.ClaimId = TEXT("claim.written.number.range");
+    ChineseRange.Text = TEXT("现场约有三百枚封印。");
+    TestTrue(TEXT("A shorter Chinese protected number does not match inside a larger number"),
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, NumericView, FGameplayTagContainer(), {ChineseRange}, NumericPolicy).bOk);
+
+    UKnowledgeDialogueGuardPolicy* CompatibilityPolicy = MakeGuardPolicy();
+    CompatibilityPolicy->ProtectedNumberLexicon = {TEXT("3000")};
+    FKnowledgeDialogueClaim FullWidthNumber = NegativeNumber;
+    FullWidthNumber.ClaimId = TEXT("claim.number.fullwidth");
+    FullWidthNumber.Text = TEXT("库存为３，０００枚。 ");
+    const FKnowledgeDialogueGuardResult FullWidthBlocked =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, NumericView, FGameplayTagContainer(), {FullWidthNumber}, CompatibilityPolicy);
+    TestTrue(TEXT("Full-width grouped digits normalize before protected-number matching"),
+        FullWidthBlocked.bBlocked
+        && FullWidthBlocked.Error == TEXT("dialogue_claim_number_mismatch"));
+
+    FKnowledgeDialogueClaim OrdinaryDuration = NegativeNumber;
+    OrdinaryDuration.ClaimId = TEXT("claim.number.ordinary.duration");
+    OrdinaryDuration.Text = TEXT("先观察五分钟再行动。");
+    TestTrue(TEXT("An unprotected ordinary duration is not mechanically rejected"),
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, NumericView, FGameplayTagContainer(), {OrdinaryDuration}, NumericPolicy).bOk);
     return true;
 }
 
@@ -523,6 +685,8 @@ bool FKnowledgeModelAdapterContractTest::RunTest(const FString& Parameters)
         Player, View, FGameplayTagContainer(), ValidJson, Policy);
     TestTrue(TEXT("Strict JSON adapter passes one fully grounded claim"), Valid.bOk && !Valid.bBlocked);
     TestEqual(TEXT("Adapter exposes only guarded SafeText"), Valid.SafeText, FString(TEXT("现场发现了1枚王廷秘印。")));
+    TestEqual(TEXT("The adapter replaces model claim IDs with plugin-assigned IDs"),
+        Valid.AllowedClaimIds[0], FName(TEXT("claim-0001")));
 
     const FKnowledgeDialogueGuardResult Malformed = UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
         Player, View, FGameplayTagContainer(), TEXT("{not-json"), Policy);
@@ -542,25 +706,37 @@ bool FKnowledgeModelAdapterContractTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Empty FactId evidence is rejected by the adapter contract"),
         EmptyEvidence.bBlocked && EmptyEvidence.Error == TEXT("model_json_evidence_invalid"));
 
+    Policy->bAllowUncitedRoleplay = true;
+    const FString RoleplayJson = TEXT("{\"claims\":[{\"claimId\":\"claim.roleplay\",\"text\":\"先看看周围，你想从哪里开始？\",\"evidenceFactIds\":[],\"claimedEntities\":[],\"claimedNumbers\":[],\"negated\":false}]}");
+    const FKnowledgeDialogueGuardResult ParsedRoleplay =
+        UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
+            Player, View, FGameplayTagContainer(), RoleplayJson, Policy);
+    TestTrue(TEXT("The adapter accepts opted-in non-factual roleplay JSON"),
+        ParsedRoleplay.bOk && !ParsedRoleplay.bBlocked);
+    Policy->bAllowUncitedRoleplay = false;
+
     const FString DuplicateEvidenceJson = TEXT("{\"claims\":[{\"claimId\":\"claim.duplicate.evidence\",\"text\":\"现场发现了1枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\",\"fact.adapter.royal_seal\"],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
     TestTrue(TEXT("Duplicate FactId evidence is rejected"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
             Player, View, FGameplayTagContainer(), DuplicateEvidenceJson, Policy).Error == TEXT("model_json_evidence_invalid"));
 
     const FString MissingEntityJson = TEXT("{\"claims\":[{\"claimId\":\"claim.missing.entity.json\",\"text\":\"现场发现了1枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[],\"claimedNumbers\":[\"1\"],\"negated\":false}]}");
-    TestTrue(TEXT("A protected entity omitted from parsed metadata still fails the fact guard"),
+    const FKnowledgeDialogueGuardResult DerivedEntity =
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
-            Player, View, FGameplayTagContainer(), MissingEntityJson, Policy).Error == TEXT("dialogue_claim_entity_mismatch"));
+            Player, View, FGameplayTagContainer(), MissingEntityJson, Policy);
+    TestTrue(TEXT("A protected authorized entity is derived locally when model metadata omits it"),
+        DerivedEntity.bOk && !DerivedEntity.bBlocked
+        && DerivedEntity.SafeText == TEXT("现场发现了1枚王廷秘印。"));
 
     const FString WrongNumberJson = TEXT("{\"claims\":[{\"claimId\":\"claim.wrong.number.json\",\"text\":\"现场发现了2枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"2\"],\"negated\":false}]}");
-    TestTrue(TEXT("Parsed extra numbers still fail the fact guard"),
+    TestTrue(TEXT("Parsed ordinary numbers are passed to the independent semantic reviewer"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
-            Player, View, FGameplayTagContainer(), WrongNumberJson, Policy).Error == TEXT("dialogue_claim_number_mismatch"));
+            Player, View, FGameplayTagContainer(), WrongNumberJson, Policy).bOk);
 
     const FString WrongNegationJson = TEXT("{\"claims\":[{\"claimId\":\"claim.wrong.negation.json\",\"text\":\"现场没有发现1枚王廷秘印。\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[\"王廷秘印\"],\"claimedNumbers\":[\"1\"],\"negated\":true}]}");
-    TestTrue(TEXT("Parsed negation reversal still fails the fact guard"),
+    TestTrue(TEXT("Parsed negation is passed to the independent semantic reviewer"),
         UKnowledgeModelAdapterLibrary::GuardKnowledgeModelJsonResponse(
-            Player, View, FGameplayTagContainer(), WrongNegationJson, Policy).Error == TEXT("dialogue_claim_negation_mismatch"));
+            Player, View, FGameplayTagContainer(), WrongNegationJson, Policy).bOk);
 
     const FString LongText = FString::ChrN(2049, TEXT('x'));
     const FString LongTextJson = FString::Printf(TEXT("{\"claims\":[{\"claimId\":\"claim.long\",\"text\":\"%s\",\"evidenceFactIds\":[\"fact.adapter.royal_seal\"],\"claimedEntities\":[],\"claimedNumbers\":[],\"negated\":false}]}"), *LongText);
@@ -1089,20 +1265,32 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("A provider-neutral semantic request is created"), Begin.bOk);
     TestEqual(TEXT("The request carries only mechanically allowed claims"),
         Begin.Request.AllowedClaimIds.Num(), 1);
+    TestEqual(TEXT("The request carries plugin-assigned claim objects"),
+        Begin.Request.AllowedClaims.Num(), 1);
     TestEqual(TEXT("The request carries the allowed atomic facts"),
         Begin.Request.AllowedFacts.Num(), 2);
 
     FKnowledgeSemanticReviewResponse ApprovedResponse;
     ApprovedResponse.RequestId = Begin.Request.RequestId;
-    ApprovedResponse.Decision = EKnowledgeSemanticReviewDecision::Approved;
-    ApprovedResponse.ReviewedClaimIds = Begin.Request.AllowedClaimIds;
+    ApprovedResponse.ClaimAssessments.Add(MakePassingAssessment(
+        Begin.Request.AllowedClaimIds[0], Claim.EvidenceFactIds));
     ApprovedResponse.ReviewerName = TEXT("test-reviewer");
     ApprovedResponse.ReviewerVersion = TEXT("1");
+    ApprovedResponse.ReviewDurationMs = 37;
     const FKnowledgeSemanticReviewResult Approved =
         Coordinator->CompleteSemanticReview(ApprovedResponse);
     TestTrue(TEXT("A complete external approval releases FinalApprovedText"),
         Approved.bCompleted && Approved.bApproved
-        && Approved.FinalApprovedText == Mechanical.SafeText);
+        && Approved.FinalApprovedText == Mechanical.SafeText
+        && Approved.ClaimAssessments.Num() == 1
+        && Approved.ReviewedClaims.Num() == 1
+        && Approved.WorstClaimId == Begin.Request.AllowedClaimIds[0]
+        && Approved.ReviewerName == ApprovedResponse.ReviewerName
+        && Approved.ReviewerVersion == ApprovedResponse.ReviewerVersion
+        && Approved.PolicyVersion == Policy->PolicyVersion
+        && Approved.AuthorizationEpoch == Begin.Request.AuthorizationEpoch
+        && Approved.ScopeFingerprint == Begin.Request.ScopeFingerprint
+        && Approved.ReviewDurationMs == ApprovedResponse.ReviewDurationMs);
     TestEqual(TEXT("A completed request is consumed exactly once"),
         Coordinator->GetPendingReviewCount(), 0);
 
@@ -1128,16 +1316,74 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
         Player, FreshView, {Collector}, FreshMechanical, Policy);
     FKnowledgeSemanticReviewResponse BlockResponse;
     BlockResponse.RequestId = BlockBegin.Request.RequestId;
-    BlockResponse.Decision = EKnowledgeSemanticReviewDecision::Blocked;
     BlockResponse.ReviewerName = TEXT("test-reviewer");
     BlockResponse.ReviewerVersion = TEXT("1");
-    BlockResponse.UnsupportedClaimIds = BlockBegin.Request.AllowedClaimIds;
+    FKnowledgeSemanticClaimAssessment LeakingAssessment = MakePassingAssessment(
+        BlockBegin.Request.AllowedClaimIds[0], Claim.EvidenceFactIds);
+    LeakingAssessment.TaskLeak = EKnowledgeClaimRisk::Possible;
+    LeakingAssessment.TaskLeakRiskScore = 0.30f;
+    BlockResponse.ClaimAssessments.Add(LeakingAssessment);
     const FKnowledgeSemanticReviewResult Blocked =
         Coordinator->CompleteSemanticReview(BlockResponse);
     TestTrue(TEXT("A semantic rejection fails closed to the trusted policy text"),
         Blocked.Outcome == EKnowledgeSemanticReviewOutcome::Blocked
         && !Blocked.bApproved
-        && Blocked.FinalApprovedText == Policy->BlockedText.ToString());
+        && Blocked.FinalApprovedText == Policy->BlockedText.ToString()
+        && Blocked.RejectedCandidateText == FreshMechanical.SafeText
+        && Blocked.ClaimAssessments.Num() == 1
+        && Blocked.ClaimAssessments[0].TaskLeak == EKnowledgeClaimRisk::Possible
+        && Blocked.ReviewedClaims.Num() == 1
+        && Blocked.ReviewedClaims[0].Text == Claim.Text
+        && Blocked.WorstClaimId == BlockBegin.Request.AllowedClaimIds[0]);
+
+    UKnowledgeDialogueGuardPolicy* RoleplayGuard = MakeGuardPolicy();
+    RoleplayGuard->bAllowUncitedRoleplay = true;
+    FKnowledgeDialogueClaim Advice;
+    Advice.ClaimId = TEXT("claim.semantic.advice");
+    Advice.Text = TEXT("先检查脚印，再决定从哪里查起。");
+    const FKnowledgeDialogueGuardResult AdviceMechanical =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, FreshView, FGameplayTagContainer(), {Advice}, RoleplayGuard);
+    const FKnowledgeSemanticReviewBeginResult AdviceBegin = Coordinator->BeginSemanticReview(
+        Player, FreshView, {Collector}, AdviceMechanical, Policy);
+    FKnowledgeSemanticReviewResponse AdviceResponse;
+    AdviceResponse.RequestId = AdviceBegin.Request.RequestId;
+    AdviceResponse.ReviewerName = TEXT("test-reviewer");
+    AdviceResponse.ReviewerVersion = TEXT("1");
+    FKnowledgeSemanticClaimAssessment AdviceAssessment = MakePassingAssessment(
+        AdviceBegin.Request.AllowedClaimIds[0], {});
+    AdviceAssessment.Support = EKnowledgeClaimSupport::Unsupported;
+    AdviceAssessment.FactSupportScore = 0.0f;
+    AdviceResponse.ClaimAssessments.Add(AdviceAssessment);
+    const FKnowledgeSemanticReviewResult AdviceApproved =
+        Coordinator->CompleteSemanticReview(AdviceResponse);
+    TestTrue(TEXT("Safe non-factual advice does not require factual support"),
+        AdviceApproved.bApproved
+        && AdviceApproved.FinalApprovedText == AdviceMechanical.SafeText);
+
+    const FKnowledgeSemanticReviewBeginResult AdviceLeakBegin = Coordinator->BeginSemanticReview(
+        Player, FreshView, {Collector}, AdviceMechanical, Policy);
+    FKnowledgeSemanticReviewResponse AdviceLeakResponse = AdviceResponse;
+    AdviceLeakResponse.RequestId = AdviceLeakBegin.Request.RequestId;
+    AdviceLeakResponse.ClaimAssessments[0].TaskLeak = EKnowledgeClaimRisk::Possible;
+    AdviceLeakResponse.ClaimAssessments[0].TaskLeakRiskScore = 0.3f;
+    const FKnowledgeSemanticReviewResult AdviceLeakBlocked =
+        Coordinator->CompleteSemanticReview(AdviceLeakResponse);
+    TestTrue(TEXT("Non-factual advice still cannot leak future task information"),
+        !AdviceLeakBlocked.bApproved
+        && AdviceLeakBlocked.Outcome == EKnowledgeSemanticReviewOutcome::Blocked);
+
+    const FKnowledgeSemanticReviewBeginResult TypeMismatchBegin = Coordinator->BeginSemanticReview(
+        Player, FreshView, {Collector}, FreshMechanical, Policy);
+    FKnowledgeSemanticReviewResponse TypeMismatchResponse = ApprovedResponse;
+    TypeMismatchResponse.RequestId = TypeMismatchBegin.Request.RequestId;
+    TypeMismatchResponse.ClaimAssessments[0].ClaimType = EKnowledgeClaimType::NonFactual;
+    TypeMismatchResponse.ClaimAssessments[0].EvidenceFactIds.Reset();
+    const FKnowledgeSemanticReviewResult TypeMismatch =
+        Coordinator->CompleteSemanticReview(TypeMismatchResponse);
+    TestTrue(TEXT("A factual claim cannot bypass evidence by being relabeled non-factual"),
+        !TypeMismatch.bApproved
+        && TypeMismatch.Error == TEXT("semantic_review_assessment_invalid"));
     return true;
 }
 
@@ -1164,52 +1410,88 @@ bool FAiNpcProviderContractTest::RunTest(const FString& Parameters)
     Unsafe.ChatCompletionsUrl = TEXT("http://vendor.example/v1/chat/completions");
     TestFalse(TEXT("Plain HTTP to a remote vendor is rejected"),
         UAiNpcProviderSubsystem::ValidateConfiguration(Unsafe, Error));
-
-    FAiNpcProviderConfiguration Loopback = Configuration;
-    Loopback.bAllowInsecureLoopback = true;
-    Loopback.ChatCompletionsUrl = TEXT("http://localhost.com/v1/chat/completions");
-    TestFalse(TEXT("A public domain sharing the localhost prefix is not loopback"),
-        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
-    Loopback.ChatCompletionsUrl = TEXT("http://127.0.0.1.evil.tld/v1/chat/completions");
-    TestFalse(TEXT("A remote host sharing the 127.0.0.1 prefix is not loopback"),
-        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
-    Loopback.ChatCompletionsUrl = TEXT("http://127.0.0.1@evil.tld/v1/chat/completions");
-    TestFalse(TEXT("Userinfo cannot smuggle a loopback-looking host"),
-        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
-    Loopback.ChatCompletionsUrl = TEXT("http://2130706433/v1/chat/completions");
-    TestFalse(TEXT("A decimal loopback IP is not an accepted host form"),
-        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
-    Loopback.ChatCompletionsUrl = TEXT("http://127.0.0.1:8080/v1/chat/completions");
-    TestTrue(TEXT("An explicit loopback IPv4 with a port is allowed when enabled"),
-        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
-    Loopback.ChatCompletionsUrl = TEXT("http://localhost/v1/chat/completions");
-    TestTrue(TEXT("An exact localhost host is allowed when enabled"),
-        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
-    Loopback.ChatCompletionsUrl = TEXT("http://[::1]:123/v1/chat/completions");
-    TestTrue(TEXT("An exact IPv6 loopback with a port is allowed when enabled"),
-        UAiNpcProviderSubsystem::ValidateConfiguration(Loopback, Error));
+    Unsafe.ChatCompletionsUrl = TEXT("http://localhost.com/v1/chat/completions");
+    TestFalse(TEXT("A localhost prefix on a remote hostname cannot bypass HTTPS"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Unsafe, Error));
+    Unsafe.ChatCompletionsUrl = TEXT("http://localhost@vendor.example/v1/chat/completions");
+    TestFalse(TEXT("URL user-info cannot disguise a remote hostname as loopback"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Unsafe, Error));
+    Unsafe.ChatCompletionsUrl = TEXT("http://127.42.0.7:1234/v1/chat/completions");
+    TestTrue(TEXT("The explicit IPv4 loopback range remains available for local models"),
+        UAiNpcProviderSubsystem::ValidateConfiguration(Unsafe, Error));
 
     UGameInstance* TestGameInstance = NewObject<UGameInstance>();
     UAiNpcProviderSubsystem* ProviderGateway = NewObject<UAiNpcProviderSubsystem>(TestGameInstance);
-    TestTrue(TEXT("Configuring the dialogue channel succeeds"),
-        ProviderGateway->ConfigureProvider(
-            EAiNpcProviderChannel::DialogueGeneration, Configuration, TEXT("dialogue-key"), Error));
-    TestTrue(TEXT("The dialogue provider is ready"),
-        ProviderGateway->IsProviderReady(EAiNpcProviderChannel::DialogueGeneration));
-    TestFalse(TEXT("Reusing the dialogue URL and model for review is rejected by default"),
-        ProviderGateway->ConfigureProvider(
-            EAiNpcProviderChannel::SemanticReview, Configuration, TEXT("review-key"), Error));
-    TestEqual(TEXT("The independence failure is explicit"), Error,
-        FString(TEXT("review_provider_must_be_independent")));
-    FAiNpcProviderConfiguration IndependentReviewer = Configuration;
-    IndependentReviewer.Model = TEXT("reviewer-model");
-    TestTrue(TEXT("A reviewer with a different model is accepted"),
-        ProviderGateway->ConfigureProvider(
-            EAiNpcProviderChannel::SemanticReview, IndependentReviewer, TEXT("review-key"), Error));
-    ProviderGateway->ClearCredentials();
-    TestFalse(TEXT("Clearing credentials disables both channels"),
-        ProviderGateway->IsProviderReady(EAiNpcProviderChannel::DialogueGeneration)
-            || ProviderGateway->IsProviderReady(EAiNpcProviderChannel::SemanticReview));
+    TestTrue(TEXT("The default dialogue provider can be configured in memory"),
+        ProviderGateway->ConfigureProvider(EAiNpcProviderChannel::DialogueGeneration,
+            Configuration, TEXT("dialogue-key"), Error));
+    TestFalse(TEXT("The default policy rejects a correlated reviewer endpoint and model"),
+        ProviderGateway->ConfigureProvider(EAiNpcProviderChannel::SemanticReview,
+            Configuration, TEXT("review-key"), Error));
+    TestEqual(TEXT("The independent-review failure is explicit"), Error,
+        FString(TEXT("review_provider_not_independent")));
+
+    FAiNpcProviderConfiguration DemoJson = Configuration;
+    DemoJson.bRequestJsonObjectResponse = true;
+    FAiNpcPersona DemoJsonPersona;
+    DemoJsonPersona.NpcId = TEXT("npc.demo-json");
+    DemoJsonPersona.DisplayName = TEXT("Demo JSON NPC");
+    DemoJsonPersona.RoleInstructions = TEXT("Return authorized facts only.");
+    FString DemoJsonBody;
+    TestTrue(TEXT("The integrity demo can request JSON object response mode"),
+        UAiNpcProviderSubsystem::BuildDialogueRequestBody(DemoJson, DemoJsonPersona,
+            TEXT("hello"), TEXT("facts"), DemoJsonBody, Error));
+    TestTrue(TEXT("The demo JSON request includes an explicit response format"),
+        DemoJsonBody.Contains(TEXT("\"response_format\""))
+        && DemoJsonBody.Contains(TEXT("\"json_object\"")));
+    TestFalse(TEXT("Generic OpenAI-compatible JSON requests do not assume vendor thinking controls"),
+        DemoJsonBody.Contains(TEXT("\"thinking\"")));
+    DemoJson.bDisableThinkingForJsonContract = true;
+    TestTrue(TEXT("Strict JSON providers can explicitly disable thinking mode"),
+        UAiNpcProviderSubsystem::BuildDialogueRequestBody(DemoJson, DemoJsonPersona,
+            TEXT("hello"), TEXT("facts"), DemoJsonBody, Error)
+        && DemoJsonBody.Contains(TEXT("\"thinking\""))
+        && DemoJsonBody.Contains(TEXT("\"disabled\"")));
+    DemoJsonPersona.bAllowUncitedRoleplay = true;
+    TestTrue(TEXT("An opted-in persona receives the bounded roleplay fallback contract"),
+        UAiNpcProviderSubsystem::BuildDialogueRequestBody(DemoJson, DemoJsonPersona,
+            TEXT("What should we do?"), TEXT("facts"), DemoJsonBody, Error)
+        && DemoJsonBody.Contains(TEXT("evidenceFactIds=[]"))
+        && DemoJsonBody.Contains(TEXT("instead of saying that evidence is insufficient")));
+    FAiNpcProviderConfiguration IndependentReview = Configuration;
+    IndependentReview.ProviderName = TEXT("independent-reviewer");
+    IndependentReview.ChatCompletionsUrl = TEXT("https://review.example.invalid/v1/chat/completions");
+    IndependentReview.Model = TEXT("review-model");
+    TestTrue(TEXT("A distinct review endpoint and model are accepted"),
+        ProviderGateway->ConfigureProvider(EAiNpcProviderChannel::SemanticReview,
+            IndependentReview, TEXT("review-key"), Error));
+
+    FAiNpcProviderConfiguration NpcProvider = Configuration;
+    NpcProvider.ProviderName = TEXT("rowan-provider");
+    NpcProvider.ChatCompletionsUrl = TEXT("https://rowan.example.invalid/v1/chat/completions");
+    TestTrue(TEXT("An NPC can own an isolated in-memory provider profile"),
+        ProviderGateway->ConfigureNpcProvider(TEXT("npc.rowan"), NpcProvider,
+            TEXT("rowan-key"), Error));
+    TestTrue(TEXT("The isolated NPC provider reports readiness without exposing its key"),
+        ProviderGateway->IsNpcProviderReady(TEXT("npc.rowan")));
+    FAiNpcProviderConfiguration MiraProvider = Configuration;
+    MiraProvider.ProviderName = TEXT("mira-provider");
+    MiraProvider.ChatCompletionsUrl = TEXT("https://mira.example.invalid/v1/chat/completions");
+    TestTrue(TEXT("A second group member can own another provider profile"),
+        ProviderGateway->ConfigureNpcProvider(TEXT("npc.mira"), MiraProvider,
+            TEXT("mira-key"), Error));
+    TestTrue(TEXT("One group member credential can be cleared independently"),
+        ProviderGateway->ClearNpcProviderCredentials(TEXT("npc.rowan")));
+    TestFalse(TEXT("The cleared group member becomes unavailable"),
+        ProviderGateway->IsNpcProviderReady(TEXT("npc.rowan")));
+    TestTrue(TEXT("Clearing one group member leaves the other route ready"),
+        ProviderGateway->IsNpcProviderReady(TEXT("npc.mira")));
+    TestTrue(TEXT("The shared reviewer can be cleared without disconnecting NPC routes"),
+        ProviderGateway->ClearProviderCredentials(EAiNpcProviderChannel::SemanticReview));
+    TestFalse(TEXT("The cleared reviewer becomes unavailable"),
+        ProviderGateway->IsProviderReady(EAiNpcProviderChannel::SemanticReview));
+    TestTrue(TEXT("Clearing the reviewer leaves the remaining NPC route ready"),
+        ProviderGateway->IsNpcProviderReady(TEXT("npc.mira")));
 
     FAiNpcPersona Persona;
     Persona.NpcId = TEXT("npc.rowan");
@@ -1229,6 +1511,17 @@ bool FAiNpcProviderContractTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("No API key field exists in the serialized body"),
         Body.Contains(TEXT("apiKey"), ESearchCase::IgnoreCase));
 
+    FString RepairBody;
+    TestTrue(TEXT("A malformed candidate can receive one deterministic JSON-repair request"),
+        UAiNpcProviderSubsystem::BuildDialogueRepairRequestBody(
+            Configuration, Persona, TEXT("```json { broken } ```"),
+            TEXT("FactId=fact.bell | The bell was found."), RepairBody, Error));
+    TestTrue(TEXT("The repair pass is temperature zero and retains authorized facts"),
+        RepairBody.Contains(TEXT("temperature"))
+        && RepairBody.Contains(TEXT("fact.bell"))
+        && RepairBody.Contains(TEXT("dialogue_claim_number_mismatch"))
+        && RepairBody.Contains(TEXT("dialogue_claim_uncited_roleplay_unsafe")));
+
     const FString ProviderResponse = TEXT(
         "{\"choices\":[{\"message\":{\"content\":\"{\\\"claims\\\":[]}\"}}]}");
     FString Payload;
@@ -1236,25 +1529,426 @@ bool FAiNpcProviderContractTest::RunTest(const FString& Parameters)
         UAiNpcProviderSubsystem::ParseDialogueResponse(ProviderResponse, Payload, Error));
     TestEqual(TEXT("The strict JSON candidate is preserved for downstream guards"),
         Payload, FString(TEXT("{\"claims\":[]}")));
+    TestFalse(TEXT("A non-JSON provider response is rejected deterministically"),
+        UAiNpcProviderSubsystem::ParseDialogueResponse(TEXT("not-json"), Payload, Error));
+    TestEqual(TEXT("Non-JSON dialogue failure has a stable diagnostic code"),
+        Error, FString(TEXT("provider_response_not_json")));
+    TestFalse(TEXT("A truncated provider envelope is rejected deterministically"),
+        UAiNpcProviderSubsystem::ParseDialogueResponse(
+            TEXT("{\"choices\":[{\"message\":{"), Payload, Error));
+    TestEqual(TEXT("Truncated dialogue JSON uses the same bounded diagnostic"),
+        Error, FString(TEXT("provider_response_not_json")));
 
     FKnowledgeSemanticReviewRequest ReviewRequest;
     ReviewRequest.RequestId = TEXT("review-1");
     ReviewRequest.MechanicallyValidatedText = TEXT("The bell was found.");
     ReviewRequest.AllowedClaimIds.Add(TEXT("claim-1"));
+    FKnowledgeDialogueClaim ReviewClaim;
+    ReviewClaim.ClaimId = TEXT("claim-1");
+    ReviewClaim.Text = ReviewRequest.MechanicallyValidatedText;
+    ReviewClaim.EvidenceFactIds.Add(TEXT("fact.bell"));
+    ReviewRequest.AllowedClaims.Add(ReviewClaim);
     FKnowledgeFact Fact;
     Fact.FactId = TEXT("fact.bell");
     Fact.Statement = TEXT("The bell was found.");
     ReviewRequest.AllowedFacts.Add(Fact);
+    FString ReviewRetryBody;
+    TestTrue(TEXT("A reviewer format retry receives its trusted local validation code"),
+        UAiNpcProviderSubsystem::BuildReviewRequestBody(
+            Configuration, ReviewRequest, ReviewRetryBody, Error,
+            TEXT("review_claim_coverage_invalid"))
+        && ReviewRetryBody.Contains(TEXT("review_claim_coverage_invalid")));
     FKnowledgeSemanticReviewResponse ParsedReview;
     const FString ReviewResponse = TEXT(
-        "{\"choices\":[{\"message\":{\"content\":\"{\\\"decision\\\":\\\"approved\\\",\\\"reviewedClaimIds\\\":[\\\"claim-1\\\"],\\\"unsupportedClaimIds\\\":[],\\\"reasonCodes\\\":[]}\"}}]}");
-    TestTrue(TEXT("The reviewer response accepts only the structured decision contract"),
+        "{\"choices\":[{\"message\":{\"content\":\"{\\\"claimAssessments\\\":[{\\\"claimId\\\":\\\"claim-1\\\",\\\"claimType\\\":\\\"factual\\\",\\\"support\\\":\\\"supported\\\",\\\"contradiction\\\":\\\"none\\\",\\\"overreach\\\":\\\"none\\\",\\\"taskLeak\\\":\\\"none\\\",\\\"roleFit\\\":\\\"good\\\",\\\"confidence\\\":\\\"high\\\",\\\"evidenceFactIds\\\":[\\\"fact.bell\\\"],\\\"factSupportScore\\\":0.95,\\\"contradictionRiskScore\\\":0.01,\\\"overreachRiskScore\\\":0.01,\\\"taskLeakRiskScore\\\":0.01,\\\"roleFitScore\\\":0.9,\\\"confidenceScore\\\":0.95}]}\"}}]}");
+    TestTrue(TEXT("The reviewer response accepts only the per-claim gate contract"),
         UAiNpcProviderSubsystem::ParseReviewResponse(
             ReviewResponse, ReviewRequest, Configuration, ParsedReview, Error));
     TestTrue(TEXT("Reviewer identity is supplied by trusted local configuration"),
-        ParsedReview.Decision == EKnowledgeSemanticReviewDecision::Approved
+        ParsedReview.ClaimAssessments.Num() == 1
         && ParsedReview.ReviewerName == Configuration.ProviderName
         && ParsedReview.ReviewerVersion == Configuration.Model);
+
+    FKnowledgeSemanticReviewResponse MissingCoverage;
+    const FString MissingCoverageResponse = TEXT(
+        "{\"choices\":[{\"message\":{\"content\":\"{\\\"claimAssessments\\\":[]}\"}}]}");
+    TestFalse(TEXT("A reviewer response that omits an input claim ID is rejected for bounded retry"),
+        UAiNpcProviderSubsystem::ParseReviewResponse(
+            MissingCoverageResponse, ReviewRequest, Configuration, MissingCoverage, Error));
+    TestEqual(TEXT("Review coverage failure has a stable diagnostic code"),
+        Error, FString(TEXT("review_claim_coverage_invalid")));
+
+    FKnowledgeSemanticReviewResponse InvalidScore;
+    const FString InvalidScoreResponse = ReviewResponse.Replace(TEXT("0.95}"), TEXT("2.0}"));
+    TestFalse(TEXT("An out-of-range reviewer score is rejected for bounded retry"),
+        UAiNpcProviderSubsystem::ParseReviewResponse(
+            InvalidScoreResponse, ReviewRequest, Configuration, InvalidScore, Error));
+    TestEqual(TEXT("Invalid reviewer score has a stable diagnostic code"),
+        Error, FString(TEXT("review_score_invalid")));
+    FKnowledgeSemanticReviewResponse TruncatedReview;
+    TestFalse(TEXT("A truncated reviewer response is rejected before any gate decision"),
+        UAiNpcProviderSubsystem::ParseReviewResponse(
+            TEXT("{\"choices\":[{\"message\":{"), ReviewRequest,
+            Configuration, TruncatedReview, Error));
+    TestEqual(TEXT("Truncated reviewer JSON has a stable diagnostic code"),
+        Error, FString(TEXT("provider_response_not_json")));
+    TestTrue(TEXT("Timeout or disconnect failures receive one bounded retry"),
+        UAiNpcProviderSubsystem::IsRetryableReviewErrorCode(TEXT("review_connection_failed")));
+    TestTrue(TEXT("HTTP 429 receives one bounded retry"),
+        UAiNpcProviderSubsystem::IsRetryableReviewErrorCode(TEXT("review_http_error_429")));
+    TestTrue(TEXT("Invalid reviewer JSON receives one bounded format retry"),
+        UAiNpcProviderSubsystem::IsRetryableReviewErrorCode(TEXT("provider_response_not_json")));
+    TestFalse(TEXT("Permanent HTTP 400 failures are not retried"),
+        UAiNpcProviderSubsystem::IsRetryableReviewErrorCode(TEXT("review_http_error_400")));
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FQuestAuthorityBlueprintDispatchTest,
+    "MyAiTown.KnowledgeGrant.Runtime.QuestAuthorityBlueprintDispatch",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FQuestAuthorityBlueprintDispatchTest::RunTest(const FString& Parameters)
+{
+    UKnowledgeQuestAuthorityDispatchProbe* Probe =
+        NewObject<UKnowledgeQuestAuthorityDispatchProbe>();
+    FString StablePlayerId;
+    int32 CompletionRevision = 0;
+    bool bDebugEvent = true;
+    const bool bCompleted = UArpgKnowledgeGrantAdapterComponent::ResolveQuestAuthority(
+        Probe, nullptr, TEXT("quest.dispatch.probe"),
+        StablePlayerId, CompletionRevision, bDebugEvent);
+
+    TestTrue(TEXT("Quest authority dispatch succeeds through the interface contract"), bCompleted);
+    TestEqual(TEXT("The generated Execute_ thunk routes through ProcessEvent"),
+        Probe->ProcessEventCallCount, 1);
+    TestEqual(TEXT("The native implementation is invoked exactly once"),
+        Probe->ImplementationCallCount, 1);
+    TestEqual(TEXT("Dispatch preserves provider outputs"),
+        StablePlayerId, FString(TEXT("dispatch-probe-player")));
+    TestEqual(TEXT("Dispatch preserves the completion revision"), CompletionRevision, 7);
+    TestFalse(TEXT("Dispatch preserves the debug-event result"), bDebugEvent);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FKnowledgeSemanticRequestCorrelationTest,
+    "MyAiTown.KnowledgeGrant.Runtime.SemanticRequestCorrelation",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FKnowledgeSemanticRequestCorrelationTest::RunTest(const FString& Parameters)
+{
+    UAiNpcDialogueComponent* First = NewObject<UAiNpcDialogueComponent>();
+    UAiNpcDialogueComponent* Second = NewObject<UAiNpcDialogueComponent>();
+    const FGuid FirstDialogue = FGuid::NewGuid();
+    const FGuid SecondDialogue = FGuid::NewGuid();
+    const FString FirstReview = FGuid::NewGuid().ToString();
+    const FString SecondReview = FGuid::NewGuid().ToString();
+
+    TestTrue(TEXT("The first component records its review at the call site"),
+        First->CorrelateSemanticRequest(FirstReview, FirstDialogue));
+    TestTrue(TEXT("The second component records an interleaved review independently"),
+        Second->CorrelateSemanticRequest(SecondReview, SecondDialogue));
+    TestEqual(TEXT("The first review remains paired with the first dialogue"),
+        First->SemanticToProviderRequest.FindRef(FirstReview), FirstDialogue);
+    TestEqual(TEXT("The second review remains paired with the second dialogue"),
+        Second->SemanticToProviderRequest.FindRef(SecondReview), SecondDialogue);
+    TestFalse(TEXT("A review id cannot be rebound after correlation"),
+        First->CorrelateSemanticRequest(FirstReview, SecondDialogue));
+    TestFalse(TEXT("One component cannot observe another component's review mapping"),
+        First->SemanticToProviderRequest.Contains(SecondReview));
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FKnowledgeRequestIdempotencyTest,
+    "MyAiTown.KnowledgeGrant.Runtime.RequestIdempotency",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FKnowledgeRequestIdempotencyTest::RunTest(const FString& Parameters)
+{
+    UAiNpcDialogueComponent* Dialogue = NewObject<UAiNpcDialogueComponent>();
+    const FGuid ClientRequestId = FGuid::NewGuid();
+    const FGuid ProviderRequestId = FGuid::NewGuid();
+    FDialogueKnowledgeView View;
+    View.AuthorizationEpoch = FGuid::NewGuid();
+    View.ScopeFingerprint = 4242;
+
+    UAiNpcDialogueComponent::FClientRequestRecord Record;
+    Record.InputHash = TEXT("input-hash");
+    Record.AuthorizationEpoch = View.AuthorizationEpoch;
+    Record.ScopeFingerprint = View.ScopeFingerprint;
+    Record.OriginalRequestId = ProviderRequestId;
+    Dialogue->ClientRequests.Add(ClientRequestId, Record);
+
+    FGuid ResolvedRequestId;
+    FString Error;
+    TestTrue(TEXT("A repeated in-flight request is intercepted before provider dispatch"),
+        Dialogue->TryResolveExistingClientRequest(
+            ClientRequestId, TEXT("input-hash"), View, ResolvedRequestId, Error));
+    TestEqual(TEXT("Pending duplicates reuse the original provider request"),
+        ResolvedRequestId, ProviderRequestId);
+    TestEqual(TEXT("Pending duplicate status is explicit"),
+        Error, FString(TEXT("request_duplicate_pending")));
+
+    Dialogue->ClientRequests[ClientRequestId].bCompleted = true;
+    TestTrue(TEXT("A repeated completed request is served from the request record"),
+        Dialogue->TryResolveExistingClientRequest(
+            ClientRequestId, TEXT("input-hash"), View, ResolvedRequestId, Error));
+    TestEqual(TEXT("Completed duplicate status is explicit"),
+        Error, FString(TEXT("request_duplicate_completed")));
+
+    TestTrue(TEXT("Reusing an id with another input is handled as a terminal conflict"),
+        Dialogue->TryResolveExistingClientRequest(
+            ClientRequestId, TEXT("other-input"), View, ResolvedRequestId, Error));
+    TestEqual(TEXT("Conflicting id reuse cannot inherit an old result"),
+        Error, FString(TEXT("client_request_conflict")));
+    TestFalse(TEXT("A conflict does not expose a reusable provider request id"),
+        ResolvedRequestId.IsValid());
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FKnowledgeStaleResponseRejectionTest,
+    "MyAiTown.KnowledgeGrant.Runtime.StaleResponseRejection",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FKnowledgeStaleResponseRejectionTest::RunTest(const FString& Parameters)
+{
+    UKnowledgePack* InitialPack = MakeTestPack();
+    UKnowledgeGrantComponent* Player = MakeGrantComponent();
+    TestTrue(TEXT("The stale-response fixture grants its initial pack"),
+        Player->GrantKnowledgeFromQuest(
+            TEXT("stale:quest:1"), InitialPack->SourceQuestId, InitialPack).bOk);
+    const FDialogueKnowledgeView View = UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(
+        Player, {InitialPack}, FGameplayTagContainer());
+
+    UAiNpcDialogueComponent* Dialogue = NewObject<UAiNpcDialogueComponent>();
+    Dialogue->PlayerKnowledge = Player;
+    UAiNpcDialogueComponent::FPendingTurn Turn;
+    Turn.KnowledgeView = View;
+    Turn.PersonaRevision = Dialogue->PersonaRevision;
+    FString Error;
+    TestTrue(TEXT("A response remains current while authorization and persona are unchanged"),
+        Dialogue->IsPendingTurnCurrent(Turn, Error));
+
+    UKnowledgePack* LaterPack = MakeWorldEventPack(
+        TEXT("event.after.request"), TEXT("event.after.request"),
+        TEXT("later_fact"), TEXT("A later event changed the authorized view."));
+    TestTrue(TEXT("A later grant changes the authorization epoch"),
+        Player->GrantKnowledgeFromWorldEvent(
+            TEXT("stale:event:2"), LaterPack->SourceWorldEventId, LaterPack).bOk);
+    TestFalse(TEXT("A response captured before the later grant is rejected"),
+        Dialogue->IsPendingTurnCurrent(Turn, Error));
+    TestEqual(TEXT("Authorization changes use the stable stale-view error"),
+        Error, FString(TEXT("dialogue_view_stale")));
+
+    Turn.KnowledgeView = UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(
+        Player, {InitialPack, LaterPack}, FGameplayTagContainer());
+    ++Turn.PersonaRevision;
+    TestFalse(TEXT("A response from a previous persona revision is rejected"),
+        Dialogue->IsPendingTurnCurrent(Turn, Error));
+    TestEqual(TEXT("Persona changes have an explicit stale-response error"),
+        Error, FString(TEXT("dialogue_persona_changed")));
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FKnowledgeMultiProviderRoutingTest,
+    "MyAiTown.KnowledgeGrant.Runtime.MultiProviderRouting",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FKnowledgeMultiProviderRoutingTest::RunTest(const FString& Parameters)
+{
+    UGameInstance* GameInstance = NewObject<UGameInstance>();
+    UAiNpcProviderSubsystem* Gateway = NewObject<UAiNpcProviderSubsystem>(GameInstance);
+    FAiNpcProviderConfiguration Rowan;
+    Rowan.ProviderName = TEXT("rowan-provider");
+    Rowan.ChatCompletionsUrl = TEXT("https://rowan.example.invalid/v1/chat/completions");
+    Rowan.Model = TEXT("rowan-model");
+    Rowan.bPlayerConsentedToProviderTransmission = true;
+    FAiNpcProviderConfiguration Mira = Rowan;
+    Mira.ProviderName = TEXT("mira-provider");
+    Mira.ChatCompletionsUrl = TEXT("https://mira.example.invalid/v1/chat/completions");
+    Mira.Model = TEXT("mira-model");
+    FString Error;
+    TestTrue(TEXT("The first NPC provider profile is configured"),
+        Gateway->ConfigureNpcProvider(TEXT("npc.rowan"), Rowan, TEXT("rowan-key"), Error));
+    TestTrue(TEXT("The second NPC provider profile is configured"),
+        Gateway->ConfigureNpcProvider(TEXT("npc.mira"), Mira, TEXT("mira-key"), Error));
+
+    FAiNpcPersona RowanPersona;
+    RowanPersona.NpcId = TEXT("rowan");
+    RowanPersona.DisplayName = TEXT("Rowan");
+    RowanPersona.RoleInstructions = TEXT("Guard the gate.");
+    RowanPersona.ProviderProfileId = TEXT("npc.rowan");
+    FAiNpcPersona MiraPersona = RowanPersona;
+    MiraPersona.NpcId = TEXT("mira");
+    MiraPersona.DisplayName = TEXT("Mira");
+    MiraPersona.ProviderProfileId = TEXT("npc.mira");
+    const FGuid RowanSession = Gateway->OpenNpcSession(RowanPersona);
+    const FGuid MiraSession = Gateway->OpenNpcSession(MiraPersona);
+    const UAiNpcProviderSubsystem::FRuntimeProvider* RowanRoute =
+        Gateway->DialogueProviderForSession(Gateway->Sessions.FindChecked(RowanSession));
+    const UAiNpcProviderSubsystem::FRuntimeProvider* MiraRoute =
+        Gateway->DialogueProviderForSession(Gateway->Sessions.FindChecked(MiraSession));
+    TestTrue(TEXT("Each session resolves a configured route"),
+        RowanRoute != nullptr && MiraRoute != nullptr);
+    TestEqual(TEXT("Rowan resolves only Rowan's model"),
+        RowanRoute->Configuration.Model, FString(TEXT("rowan-model")));
+    TestEqual(TEXT("Mira resolves only Mira's model"),
+        MiraRoute->Configuration.Model, FString(TEXT("mira-model")));
+    TestNotEqual(TEXT("The NPC sessions do not collapse onto one provider profile"),
+        RowanRoute->Configuration.ChatCompletionsUrl,
+        MiraRoute->Configuration.ChatCompletionsUrl);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FKnowledgeDialogueFormatRepairTest,
+    "MyAiTown.KnowledgeGrant.Runtime.DialogueFormatRepair",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FKnowledgeDialogueFormatRepairTest::RunTest(const FString& Parameters)
+{
+    FAiNpcProviderConfiguration Configuration;
+    Configuration.ProviderName = TEXT("repair-provider");
+    Configuration.ChatCompletionsUrl = TEXT("https://repair.example.invalid/v1/chat/completions");
+    Configuration.Model = TEXT("repair-model");
+    Configuration.bPlayerConsentedToProviderTransmission = true;
+    FAiNpcPersona Persona;
+    Persona.NpcId = TEXT("repair-npc");
+    Persona.DisplayName = TEXT("Repair NPC");
+    Persona.RoleInstructions = TEXT("Use only authorized facts.");
+    FString Body;
+    FString Error;
+    TestTrue(TEXT("A malformed dialogue candidate produces one bounded repair request body"),
+        UAiNpcProviderSubsystem::BuildDialogueRepairRequestBody(
+            Configuration, Persona, TEXT("```json { broken } ```"),
+            TEXT("FactId=fact.safe | The gate is closed."), Body, Error));
+    TestTrue(TEXT("The repair body keeps the authorized context and strict claim schema"),
+        Body.Contains(TEXT("fact.safe"))
+        && Body.Contains(TEXT("evidenceFactIds"))
+        && Body.Contains(TEXT("temperature")));
+    TestFalse(TEXT("Permanent HTTP 400 failures are not retryable"),
+        UAiNpcProviderSubsystem::IsRetryableReviewErrorCode(TEXT("review_http_error_400")));
+    TestTrue(TEXT("HTTP 429 receives only the bounded retry path"),
+        UAiNpcProviderSubsystem::IsRetryableReviewErrorCode(TEXT("review_http_error_429")));
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FKnowledgeDeterministicAuthorizedFallbackTest,
+    "MyAiTown.KnowledgeGrant.Runtime.DeterministicAuthorizedFallback",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FKnowledgeDeterministicAuthorizedFallbackTest::RunTest(const FString& Parameters)
+{
+    FDialogueKnowledgeView View;
+    FKnowledgeDocument GateDocument;
+    FKnowledgeFact GateFact;
+    GateFact.FactId = TEXT("fact.gate");
+    GateFact.Statement = TEXT("The northern gate is closed.");
+    GateFact.Entities = {TEXT("gate")};
+    GateDocument.Facts.Add(GateFact);
+    FKnowledgeDocument BellDocument;
+    FKnowledgeFact BellFact;
+    BellFact.FactId = TEXT("fact.bell");
+    BellFact.Statement = TEXT("The bell was found near the tower.");
+    BellFact.Entities = {TEXT("bell"), TEXT("tower")};
+    BellDocument.Facts.Add(BellFact);
+    View.AllowedDocuments = {GateDocument, BellDocument};
+    TArray<FName> Evidence;
+    const FString Result = UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
+        TEXT("Where was the bell found?"), View,
+        FText::FromString(TEXT("No authorized fact.")), Evidence);
+    TestTrue(TEXT("The fallback quotes one authorized fact rather than generating a replacement"),
+        Result.StartsWith(BellFact.Statement));
+    TestEqual(TEXT("The fallback exposes exactly the selected FactId"), Evidence.Num(), 1);
+    TestEqual(TEXT("The selected evidence is deterministic"), Evidence[0], BellFact.FactId);
+
+    View.AllowedDocuments.Reset();
+    TestEqual(TEXT("An empty authorized view uses only the trusted default"),
+        UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
+            TEXT("Anything?"), View, FText::FromString(TEXT("No authorized fact.")), Evidence),
+        FString(TEXT("No authorized fact.")));
+    TestTrue(TEXT("The trusted default carries no invented evidence"), Evidence.IsEmpty());
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FKnowledgeSemanticClaimGatesTest,
+    "MyAiTown.KnowledgeGrant.Runtime.SemanticClaimGates",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FKnowledgeSemanticClaimGatesTest::RunTest(const FString& Parameters)
+{
+    UKnowledgePack* Pack = MakeTestPack();
+    UKnowledgeGrantComponent* Player = MakeGrantComponent();
+    TestTrue(TEXT("The claim-gate fixture grants its source fact"),
+        Player->GrantKnowledgeFromQuest(TEXT("claim-gate:1"), Pack->SourceQuestId, Pack).bOk);
+    const FDialogueKnowledgeView View = UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(
+        Player, {Pack}, FGameplayTagContainer());
+    FKnowledgeDialogueClaim Claim;
+    Claim.ClaimId = TEXT("claim.gate.origin");
+    Claim.Text = Pack->Documents[0].Content;
+    Claim.EvidenceFactIds = {FactIdForDocument(Pack->Documents[0].DocumentId)};
+    const FKnowledgeDialogueGuardResult Mechanical =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, View, FGameplayTagContainer(), {Claim}, MakeGuardPolicy());
+    if (!TestTrue(TEXT("The claim-gate fixture passes the mechanical gate"),
+            Mechanical.bOk && Mechanical.AllowedClaims.Num() == 1))
+    {
+        return false;
+    }
+    AActor* Owner = NewObject<AActor>();
+    UKnowledgeSemanticReviewComponent* Coordinator =
+        NewObject<UKnowledgeSemanticReviewComponent>(Owner);
+    UKnowledgeContextCollectorComponent* Collector =
+        NewObject<UKnowledgeContextCollectorComponent>(Owner);
+    UKnowledgeSemanticReviewPolicy* Policy = NewObject<UKnowledgeSemanticReviewPolicy>();
+    Policy->PolicyVersion = TEXT("semantic.claim-gates.v1");
+    Policy->TimeoutSeconds = 5.0f;
+    Policy->BlockedText = FText::FromString(TEXT("blocked"));
+    Policy->ErrorText = FText::FromString(TEXT("error"));
+
+    const FKnowledgeSemanticReviewBeginResult Begin = Coordinator->BeginSemanticReview(
+        Player, View, {Collector}, Mechanical, Policy);
+    if (!TestTrue(TEXT("The claim-gate fixture creates one reviewable claim"),
+            Begin.bOk && Begin.Request.AllowedClaimIds.Num() == 1))
+    {
+        return false;
+    }
+    FKnowledgeSemanticReviewResponse Response;
+    Response.RequestId = Begin.Request.RequestId;
+    Response.ReviewerName = TEXT("claim-gate-reviewer");
+    Response.ReviewerVersion = TEXT("1");
+    Response.ClaimAssessments.Add(MakePassingAssessment(
+        Begin.Request.AllowedClaimIds[0], Claim.EvidenceFactIds));
+    Response.ClaimAssessments[0].TaskLeak = EKnowledgeClaimRisk::Possible;
+    Response.ClaimAssessments[0].TaskLeakRiskScore = 0.3f;
+    const FKnowledgeSemanticReviewResult Blocked =
+        Coordinator->CompleteSemanticReview(Response);
+    TestTrue(TEXT("One failed safety enum blocks the whole candidate without score compensation"),
+        !Blocked.bApproved
+        && Blocked.Outcome == EKnowledgeSemanticReviewOutcome::Blocked
+        && Blocked.RejectedCandidateText == Mechanical.SafeText);
+
+    const FKnowledgeSemanticReviewBeginResult TypeBegin = Coordinator->BeginSemanticReview(
+        Player, View, {Collector}, Mechanical, Policy);
+    if (!TestTrue(TEXT("The claim-type gate creates a fresh review request"),
+            TypeBegin.bOk && TypeBegin.Request.AllowedClaimIds.Num() == 1))
+    {
+        return false;
+    }
+    Response.RequestId = TypeBegin.Request.RequestId;
+    Response.ClaimAssessments[0] = MakePassingAssessment(
+        TypeBegin.Request.AllowedClaimIds[0], {});
+    const FKnowledgeSemanticReviewResult TypeMismatch =
+        Coordinator->CompleteSemanticReview(Response);
+    TestTrue(TEXT("A factual claim cannot be relabeled non-factual to discard its evidence"),
+        !TypeMismatch.bApproved
+        && TypeMismatch.Error == TEXT("semantic_review_assessment_invalid"));
     return true;
 }
 

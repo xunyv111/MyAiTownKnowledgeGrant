@@ -5,9 +5,9 @@
 
 ## 本轮结论
 
-0.4.2 / Schema v3 已通过 UE 5.8.4 真实编译与自动化。隔离 `RunUAT BuildPlugin` 覆盖 UHT、Editor Development、Game Development 和 Game Shipping；最终构建包在最小 UE 5.8.4 宿主中加载并完成插件 Automation 12/12，0 警告、0 失败。Provider 合同覆盖显式同意、HTTPS、Key 不进入 JSON、当轮字段披露和结构化语义响应；0.4.2 的任务接口调度与共享语义审查路由修复均包含在本次构建和测试源码中。
+0.4.2 / Schema v3 已通过 UE 5.8.4 真实编译与自动化。隔离 `RunUAT BuildPlugin` 覆盖 UHT、Editor Development、Game Development 和 Game Shipping；最终构建包在最小 UE 5.8.4 宿主中加载并完成插件 Automation 20/20，0 警告、0 失败。Provider 合同覆盖显式同意、HTTPS、Key 不进入 JSON、当轮字段披露和结构化语义响应；0.4.2 的任务接口调度与共享语义审查路由修复均包含在本次构建和测试源码中。
 
-隔离 ARPG 宿主 5/5、专用服务器/双客户端 PIE 及离屏关卡验收来自 UE 5.7.4 历史集成基线，本轮未在 UE 5.8.4 重跑，因此不计入本轮 12/12 结果。
+隔离 ARPG 宿主 5/5、专用服务器/双客户端 PIE 及离屏关卡验收来自 UE 5.7.4 历史集成基线，本轮未在 UE 5.8.4 重跑，因此不计入本轮 20/20 结果。
 
 0.3.0 新增 `Runtime.SemanticReviewContract`：验证只有机械放行结果才能创建供应商无关请求；完整外部批准才释放 `FinalApprovedText`；授权在 API 等待期间改变时旧响应失败关闭；语义拒绝返回宿主可信兜底。新增 `KnowledgeGrantHost.ARPG.AdapterFlow`：验证服务器任务未完成拒绝、固定注册表授予、玩家 Owner 绑定、幂等、完成修订乱序拒绝、调试事件拒绝和瞬态审计记录。
 
@@ -22,7 +22,7 @@
 ## 构建
 
 - 官方插件打包：UE 5.8.4 `RunUAT BuildPlugin` 使用纯 ASCII 短路径临时 HostProject，完成 `UnrealEditor Win64 Development`、`UnrealGame Win64 Development` 与 `UnrealGame Win64 Shipping`；AutomationTool 输出 `BUILD SUCCESSFUL`，退出码 0。
-- 最终 BuildPlugin 产物安装到 UE 5.8.4 临时宿主，插件加载成功并运行 `MyAiTown.KnowledgeGrant` 全套 12 项 Automation。
+- 最终 BuildPlugin 产物安装到 UE 5.8.4 临时宿主，插件加载成功并运行 `MyAiTown.KnowledgeGrant` 全套 20 项 Automation。
 - 首次长输出路径触发 Windows 260 字符限制；改用短 ASCII 构建路径后成功。该问题不属于插件代码失败。
 
 原工作区含中文路径，真实编译使用 ASCII 临时验证副本；机器相关原始报告与日志不随公开仓库分发。没有修改用户的 UE 全局设置。
@@ -81,7 +81,7 @@
 
 公开仓库只保留与机器无关的验证摘要：[Docs/VERIFICATION.md](Docs/VERIFICATION.md)。原始 UE JSON 报告、日志和截图包含本机路径与主机信息，未随公开仓库分发；发布者在 Release 资产中单独保存证据包。
 
-本轮直接读取最终发布包对应的 UE 5.8 JSON 报告：12 succeeded、0 warnings、0 failed、0 not run，测试进程退出码为 0。旧宿主 5/5 结果单独保留为历史集成基线。
+本轮直接读取最终发布包对应的 UE 5.8 JSON 报告：20 succeeded、0 warnings、0 failed、0 not run，测试进程退出码为 0。旧宿主 5/5 结果单独保留为历史集成基线。
 
 ## 已证实的运行结果
 

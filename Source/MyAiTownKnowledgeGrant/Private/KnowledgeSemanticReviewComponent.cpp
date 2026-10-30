@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #include "KnowledgeSemanticReviewComponent.h"
 
 #include "GameFramework/Actor.h"
@@ -19,6 +17,50 @@ bool NameSetsEqual(const TArray<FName>& A, const TArray<FName>& B)
     if (ASet.Num() != A.Num() || BSet.Num() != B.Num()) return false;
     for (const FName Value : ASet) if (!BSet.Contains(Value)) return false;
     return true;
+}
+
+bool IsUnitScore(float Value)
+{
+    return FMath::IsFinite(Value) && Value >= 0.0f && Value <= 1.0f;
+}
+
+bool IsPolicyValid(const UKnowledgeSemanticReviewPolicy* Policy)
+{
+    if (!IsValid(Policy) || Policy->PolicyVersion.IsNone()
+        || Policy->TimeoutSeconds < 0.1f || Policy->TimeoutSeconds > 60.0f) return false;
+    const float Weights[] = {
+        Policy->FactSupportQualityWeight,
+        Policy->ContradictionSafetyQualityWeight,
+        Policy->OverreachSafetyQualityWeight,
+        Policy->TaskLeakSafetyQualityWeight,
+        Policy->RoleFitQualityWeight};
+    float Sum = 0.0f;
+    for (const float Weight : Weights)
+    {
+        if (!FMath::IsFinite(Weight) || Weight < 0.0f || Weight > 1.0f) return false;
+        Sum += Weight;
+    }
+    return Sum > UE_SMALL_NUMBER;
+}
+
+float ClaimQualityScore(const FKnowledgeSemanticClaimAssessment& Assessment,
+    const UKnowledgeSemanticReviewPolicy* Policy)
+{
+    const float WeightSum = Policy->FactSupportQualityWeight
+        + Policy->ContradictionSafetyQualityWeight
+        + Policy->OverreachSafetyQualityWeight
+        + Policy->TaskLeakSafetyQualityWeight
+        + Policy->RoleFitQualityWeight;
+    // Fact support is not applicable to a question, intention, reaction, or proposal.
+    // Treat that quality dimension as neutral/full instead of penalizing safe roleplay.
+    const float FactSupportQuality = Assessment.ClaimType == EKnowledgeClaimType::Factual
+        ? Assessment.FactSupportScore : 1.0f;
+    const float Weighted = FactSupportQuality * Policy->FactSupportQualityWeight
+        + (1.0f - Assessment.ContradictionRiskScore) * Policy->ContradictionSafetyQualityWeight
+        + (1.0f - Assessment.OverreachRiskScore) * Policy->OverreachSafetyQualityWeight
+        + (1.0f - Assessment.TaskLeakRiskScore) * Policy->TaskLeakSafetyQualityWeight
+        + Assessment.RoleFitScore * Policy->RoleFitQualityWeight;
+    return Weighted / WeightSum;
 }
 }
 
@@ -41,14 +83,22 @@ FKnowledgeSemanticReviewBeginResult UKnowledgeSemanticReviewComponent::BeginSema
         Begin.Error = TEXT("authority_required");
         return Begin;
     }
-    if (!IsValid(Policy) || Policy->PolicyVersion.IsNone()
-        || Policy->TimeoutSeconds < 0.1f || Policy->TimeoutSeconds > 60.0f)
+    if (!IsPolicyValid(Policy))
     {
         Begin.Error = TEXT("semantic_review_policy_invalid");
         return Begin;
     }
     if (!MechanicalResult.bOk || MechanicalResult.SafeText.TrimStartAndEnd().IsEmpty()
         || MechanicalResult.AllowedClaimIds.IsEmpty()
+        || MechanicalResult.AllowedClaims.IsEmpty()
+        || !NameSetsEqual(MechanicalResult.AllowedClaimIds,
+            [&MechanicalResult]()
+            {
+                TArray<FName> Ids;
+                for (const FKnowledgeDialogueClaim& Claim : MechanicalResult.AllowedClaims)
+                    Ids.Add(Claim.ClaimId);
+                return Ids;
+            }())
         || MechanicalResult.ValidatedScopeFingerprint != KnowledgeView.ScopeFingerprint
         || (MechanicalResult.Outcome != EKnowledgeDialogueGuardOutcome::Allowed
             && MechanicalResult.Outcome != EKnowledgeDialogueGuardOutcome::PartiallyAllowed))
@@ -87,6 +137,7 @@ FKnowledgeSemanticReviewBeginResult UKnowledgeSemanticReviewComponent::BeginSema
     Request.ExpiresAtUtc = FDateTime::UtcNow() + FTimespan::FromSeconds(Policy->TimeoutSeconds);
     Request.MechanicallyValidatedText = MechanicalResult.SafeText;
     Request.AllowedClaimIds = MechanicalResult.AllowedClaimIds;
+    Request.AllowedClaims = MechanicalResult.AllowedClaims;
     for (const FKnowledgeDocument& Document : KnowledgeView.AllowedDocuments)
     {
         Request.AllowedFacts.Append(Document.Facts);
@@ -134,6 +185,11 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::CompleteSemant
         Result = TerminalFailure(Response.RequestId, TEXT("semantic_review_identity_invalid"), Policy,
             EKnowledgeSemanticReviewOutcome::Error);
     }
+    else if (!Response.Error.IsEmpty())
+    {
+        Result = TerminalFailure(Response.RequestId, Response.Error, Policy,
+            EKnowledgeSemanticReviewOutcome::Error);
+    }
     else
     {
         FGameplayTagContainer LiveTags;
@@ -149,13 +205,95 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::CompleteSemant
             Result = TerminalFailure(Response.RequestId, ViewError, Policy,
                 EKnowledgeSemanticReviewOutcome::Invalid);
         }
-        else if (Response.Decision == EKnowledgeSemanticReviewDecision::Approved)
+        else
         {
-            if (!Response.UnsupportedClaimIds.IsEmpty()
-                || !NameSetsEqual(Response.ReviewedClaimIds, Pending.Request.AllowedClaimIds))
+            TArray<FName> AssessmentIds;
+            TSet<FName> AllowedFactIds;
+            for (const FKnowledgeFact& Fact : Pending.Request.AllowedFacts)
+                AllowedFactIds.Add(Fact.FactId);
+            TMap<FName, const FKnowledgeDialogueClaim*> ClaimsById;
+            for (const FKnowledgeDialogueClaim& Claim : Pending.Request.AllowedClaims)
+                ClaimsById.Add(Claim.ClaimId, &Claim);
+
+            bool bAssessmentInvalid = Response.ClaimAssessments.Num()
+                != Pending.Request.AllowedClaimIds.Num();
+            bool bGateBlocked = false;
+            float WorstQuality = 1.0f;
+            FName WorstClaimId = NAME_None;
+            for (const FKnowledgeSemanticClaimAssessment& Assessment : Response.ClaimAssessments)
             {
-                Result = TerminalFailure(Response.RequestId, TEXT("semantic_review_coverage_invalid"), Policy,
+                AssessmentIds.Add(Assessment.ClaimId);
+                const FKnowledgeDialogueClaim* const* SourceClaim = ClaimsById.Find(Assessment.ClaimId);
+                const bool bExpectedFactual = SourceClaim != nullptr
+                    && !(*SourceClaim)->EvidenceFactIds.IsEmpty();
+                const bool bClaimTypeMatches = SourceClaim != nullptr
+                    && Assessment.ClaimType == (bExpectedFactual
+                        ? EKnowledgeClaimType::Factual : EKnowledgeClaimType::NonFactual);
+                const bool bScoresValid = IsUnitScore(Assessment.FactSupportScore)
+                    && IsUnitScore(Assessment.ContradictionRiskScore)
+                    && IsUnitScore(Assessment.OverreachRiskScore)
+                    && IsUnitScore(Assessment.TaskLeakRiskScore)
+                    && IsUnitScore(Assessment.RoleFitScore)
+                    && IsUnitScore(Assessment.ConfidenceScore);
+                TSet<FName> SeenEvidence;
+                bool bEvidenceValid = true;
+                for (const FName FactId : Assessment.EvidenceFactIds)
+                {
+                    if (FactId.IsNone() || SeenEvidence.Contains(FactId)
+                        || !AllowedFactIds.Contains(FactId))
+                    {
+                        bEvidenceValid = false;
+                        break;
+                    }
+                    SeenEvidence.Add(FactId);
+                }
+                if (Assessment.ClaimType == EKnowledgeClaimType::Factual
+                    && Assessment.EvidenceFactIds.IsEmpty()) bEvidenceValid = false;
+                if (!bScoresValid || !bEvidenceValid || !bClaimTypeMatches)
+                    bAssessmentInvalid = true;
+
+                const bool bFactSupportPasses = !bExpectedFactual
+                    || Assessment.Support == EKnowledgeClaimSupport::Supported;
+                const bool bClaimPasses = bFactSupportPasses
+                    && Assessment.Contradiction == EKnowledgeClaimRisk::None
+                    && Assessment.Overreach == EKnowledgeClaimRisk::None
+                    && Assessment.TaskLeak == EKnowledgeClaimRisk::None
+                    && Assessment.RoleFit != EKnowledgeRoleFit::Bad
+                    && (!Policy->bBlockWeakRoleFit || Assessment.RoleFit == EKnowledgeRoleFit::Good)
+                    && Assessment.Confidence != EKnowledgeReviewConfidence::Low
+                    && (!Policy->bBlockMediumConfidence
+                        || Assessment.Confidence == EKnowledgeReviewConfidence::High);
+                if (!bClaimPasses) bGateBlocked = true;
+
+                if (bScoresValid)
+                {
+                    const float Quality = ClaimQualityScore(Assessment, Policy);
+                    if (WorstClaimId.IsNone() || Quality < WorstQuality)
+                    {
+                        WorstQuality = Quality;
+                        WorstClaimId = Assessment.ClaimId;
+                    }
+                }
+            }
+            if (!NameSetsEqual(AssessmentIds, Pending.Request.AllowedClaimIds))
+                bAssessmentInvalid = true;
+
+            if (bAssessmentInvalid)
+            {
+                Result = TerminalFailure(Response.RequestId,
+                    TEXT("semantic_review_assessment_invalid"), Policy,
                     EKnowledgeSemanticReviewOutcome::Error);
+            }
+            else if (bGateBlocked)
+            {
+                Result = TerminalFailure(Response.RequestId, TEXT("semantic_review_blocked"), Policy,
+                    EKnowledgeSemanticReviewOutcome::Blocked);
+#if !UE_BUILD_SHIPPING
+                Result.ClaimAssessments = Response.ClaimAssessments;
+                Result.ReviewedClaims = Pending.Request.AllowedClaims;
+                Result.WorstClaimQualityScore = WorstQuality;
+                Result.WorstClaimId = WorstClaimId;
+#endif
             }
             else
             {
@@ -164,19 +302,38 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::CompleteSemant
                 Result.Outcome = EKnowledgeSemanticReviewOutcome::Approved;
                 Result.RequestId = Response.RequestId;
                 Result.FinalApprovedText = Pending.Request.MechanicallyValidatedText;
+#if !UE_BUILD_SHIPPING
+                Result.ClaimAssessments = Response.ClaimAssessments;
+                Result.ReviewedClaims = Pending.Request.AllowedClaims;
+                Result.WorstClaimQualityScore = WorstQuality;
+                Result.WorstClaimId = WorstClaimId;
+#endif
             }
         }
-        else if (Response.Decision == EKnowledgeSemanticReviewDecision::Blocked)
-        {
-            Result = TerminalFailure(Response.RequestId, TEXT("semantic_review_blocked"), Policy,
-                EKnowledgeSemanticReviewOutcome::Blocked);
-        }
-        else
-        {
-            Result = TerminalFailure(Response.RequestId, TEXT("semantic_review_provider_error"), Policy,
-                EKnowledgeSemanticReviewOutcome::Error);
-        }
     }
+
+#if !UE_BUILD_SHIPPING
+    Result.ReviewerName = Response.ReviewerName;
+    Result.ReviewerVersion = Response.ReviewerVersion;
+    Result.PolicyVersion = Pending.Request.PolicyVersion;
+    Result.AuthorizationEpoch = Pending.Request.AuthorizationEpoch;
+    Result.ScopeFingerprint = Pending.Request.ScopeFingerprint;
+    Result.ReviewDurationMs = Response.ReviewDurationMs;
+
+    if (!Result.bApproved)
+        Result.RejectedCandidateText = Pending.Request.MechanicallyValidatedText;
+
+    if (!Result.ClaimAssessments.IsEmpty())
+    {
+        UE_LOG(LogTemp, Display,
+            TEXT("Semantic review summary: request=%s approved=%s outcome=%d worstClaim=%s worstQuality=%.3f"),
+            *Result.RequestId,
+            Result.bApproved ? TEXT("true") : TEXT("false"),
+            static_cast<int32>(Result.Outcome),
+            *Result.WorstClaimId.ToString(),
+            Result.WorstClaimQualityScore);
+    }
+#endif
 
     OnSemanticReviewCompleted.Broadcast(Result);
     return Result;

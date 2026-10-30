@@ -145,6 +145,13 @@ private:
     UKnowledgeGrantComponent* ResolveKnowledgeComponent() const;
     int32 FindHighestRecordedCompletionRevision(
         const FString& StablePlayerId, FName QuestId) const;
+    static bool ResolveQuestAuthority(
+        UObject* Provider, const AActor* PlayerOwner, FName QuestId,
+        FString& OutStablePlayerId, int32& OutCompletionRevision, bool& bOutDebugEvent);
     static FString BuildGrantEventId(
         const FString& StablePlayerId, FName QuestId, int32 CompletionRevision);
+
+#if WITH_DEV_AUTOMATION_TESTS
+    friend class FQuestAuthorityBlueprintDispatchTest;
+#endif
 };

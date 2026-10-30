@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -29,6 +27,45 @@ enum class EKnowledgeSemanticReviewOutcome : uint8
     Error
 };
 
+UENUM(BlueprintType)
+enum class EKnowledgeClaimType : uint8
+{
+    Factual,
+    NonFactual
+};
+
+UENUM(BlueprintType)
+enum class EKnowledgeClaimSupport : uint8
+{
+    Supported,
+    Partial,
+    Unsupported
+};
+
+UENUM(BlueprintType)
+enum class EKnowledgeClaimRisk : uint8
+{
+    None,
+    Possible,
+    Clear
+};
+
+UENUM(BlueprintType)
+enum class EKnowledgeRoleFit : uint8
+{
+    Good,
+    Weak,
+    Bad
+};
+
+UENUM(BlueprintType)
+enum class EKnowledgeReviewConfidence : uint8
+{
+    High,
+    Medium,
+    Low
+};
+
 /** Host-authored fail-closed policy. API credentials and provider settings stay outside this asset. */
 UCLASS(BlueprintType)
 class MYAITOWNKNOWLEDGEGRANT_API UKnowledgeSemanticReviewPolicy : public UDataAsset
@@ -47,6 +84,24 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Semantic Review", meta = (MultiLine = true))
     FText ErrorText;
+
+    /** Quality weights are diagnostic only. They never compensate for a failed safety gate. */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Semantic Review|Quality", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float FactSupportQualityWeight = 0.35f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Semantic Review|Quality", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float ContradictionSafetyQualityWeight = 0.20f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Semantic Review|Quality", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float OverreachSafetyQualityWeight = 0.20f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Semantic Review|Quality", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float TaskLeakSafetyQualityWeight = 0.15f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Semantic Review|Quality", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float RoleFitQualityWeight = 0.10f;
+
+    /** Weak role fit is a quality warning, not a knowledge-safety failure, unless the host opts into strict role quality. */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Semantic Review|Gate")
+    bool bBlockWeakRoleFit = false;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Semantic Review|Gate")
+    bool bBlockMediumConfidence = false;
 };
 
 /** Provider-neutral payload for an external API, local model, or project-owned reviewer. */
@@ -63,7 +118,33 @@ struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeSemanticReviewRequest
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") FDateTime ExpiresAtUtc;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") FString MechanicallyValidatedText;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") TArray<FName> AllowedClaimIds;
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") TArray<FKnowledgeDialogueClaim> AllowedClaims;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") TArray<FKnowledgeFact> AllowedFacts;
+};
+
+/** One complete, non-compensating assessment for one plugin-assigned claim ID. */
+USTRUCT(BlueprintType)
+struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeSemanticClaimAssessment
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") FName ClaimId;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") EKnowledgeClaimType ClaimType = EKnowledgeClaimType::Factual;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") EKnowledgeClaimSupport Support = EKnowledgeClaimSupport::Unsupported;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") EKnowledgeClaimRisk Contradiction = EKnowledgeClaimRisk::Clear;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") EKnowledgeClaimRisk Overreach = EKnowledgeClaimRisk::Clear;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") EKnowledgeClaimRisk TaskLeak = EKnowledgeClaimRisk::Clear;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") EKnowledgeRoleFit RoleFit = EKnowledgeRoleFit::Bad;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") EKnowledgeReviewConfidence Confidence = EKnowledgeReviewConfidence::Low;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") TArray<FName> EvidenceFactIds;
+
+    /** Untrusted reviewer telemetry. Every value must be finite and in [0,1]; gates use the enums above. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review|Telemetry") float FactSupportScore = 0.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review|Telemetry") float ContradictionRiskScore = 1.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review|Telemetry") float OverreachRiskScore = 1.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review|Telemetry") float TaskLeakRiskScore = 1.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review|Telemetry") float RoleFitScore = 0.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review|Telemetry") float ConfidenceScore = 0.0f;
 };
 
 /** A reviewer may approve or block only. It cannot inject replacement dialogue. */
@@ -73,12 +154,11 @@ struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeSemanticReviewResponse
     GENERATED_BODY()
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") FString RequestId;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") EKnowledgeSemanticReviewDecision Decision = EKnowledgeSemanticReviewDecision::Error;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") TArray<FName> ReviewedClaimIds;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") TArray<FName> UnsupportedClaimIds;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") TArray<FString> ReasonCodes;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") TArray<FKnowledgeSemanticClaimAssessment> ClaimAssessments;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") FString ReviewerName;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") FString ReviewerVersion;
+    /** Trusted local transport/parser error. Remote response bodies never populate this field directly. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review") FString Error;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge|Semantic Review", meta = (ClampMin = "0")) int32 ReviewDurationMs = 0;
 };
 
@@ -91,9 +171,27 @@ struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeSemanticReviewResult
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") bool bApproved = false;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") EKnowledgeSemanticReviewOutcome Outcome = EKnowledgeSemanticReviewOutcome::Invalid;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") FString RequestId;
+    /** Trusted local review identity and policy metadata. Diagnostics only. */
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review|Diagnostics") FString ReviewerName;
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review|Diagnostics") FString ReviewerVersion;
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review|Diagnostics") FName PolicyVersion;
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review|Diagnostics") FGuid AuthorizationEpoch;
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review|Diagnostics") int64 ScopeFingerprint = 0;
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review|Diagnostics") int32 ReviewDurationMs = 0;
     /** The only text that formal dialogue outlets may consume after semantic review is enabled. */
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") FString FinalApprovedText;
+    /** Development diagnostics only. Never route this rejected candidate to gameplay, voice, or behavior. */
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") FString RejectedCandidateText;
+    /** Locally validated per-claim reviewer output, retained for non-Shipping diagnostics. */
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review")
+    TArray<FKnowledgeSemanticClaimAssessment> ClaimAssessments;
+    /** Mechanically validated claim texts corresponding to ClaimAssessments. Diagnostics only. */
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review")
+    TArray<FKnowledgeDialogueClaim> ReviewedClaims;
     UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") FString Error;
+    /** Minimum diagnostic quality across all claims; never used to override a failed gate. */
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") float WorstClaimQualityScore = 0.0f;
+    UPROPERTY(BlueprintReadOnly, Category = "Knowledge|Semantic Review") FName WorstClaimId;
 };
 
 USTRUCT(BlueprintType)

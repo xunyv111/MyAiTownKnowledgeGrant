@@ -3,6 +3,7 @@ Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
+TestHost/
 
 # IDE and local workspace files
 .idea/

@@ -1,5 +1,3 @@
-// Copyright 2026 xunyv.
-
 #include "ArpgKnowledgeGrantAdapterComponent.h"
 
 #include "GameFramework/Actor.h"
@@ -83,10 +81,9 @@ FArpgKnowledgeGrantAdapterResult UArpgKnowledgeGrantAdapterComponent::GrantCompl
     FString StablePlayerId;
     int32 CompletionRevision = 0;
     bool bDebugEvent = false;
-    // Always dispatch through the interface thunk: calling ResolveCompletedQuest_Implementation
-    // directly on a natively-cast pointer would skip Blueprint overrides of this BlueprintNativeEvent.
-    const bool bCompleted = IArpgQuestAuthorityProvider::Execute_ResolveCompletedQuest(
-        QuestAuthorityProvider, Owner, QuestId, StablePlayerId, CompletionRevision, bDebugEvent);
+    const bool bCompleted = ResolveQuestAuthority(
+        QuestAuthorityProvider, Owner, QuestId,
+        StablePlayerId, CompletionRevision, bDebugEvent);
     StablePlayerId = StablePlayerId.TrimStartAndEnd();
     if (bDebugEvent)
     {
@@ -129,6 +126,23 @@ FArpgKnowledgeGrantAdapterResult UArpgKnowledgeGrantAdapterComponent::GrantCompl
     Result.Revision = Grant.Revision;
     RecordAudit(QuestId, StablePlayerId, Result);
     return Result;
+}
+
+bool UArpgKnowledgeGrantAdapterComponent::ResolveQuestAuthority(
+    UObject* Provider, const AActor* PlayerOwner, FName QuestId,
+    FString& OutStablePlayerId, int32& OutCompletionRevision, bool& bOutDebugEvent)
+{
+    if (!IsValid(Provider)
+        || !Provider->GetClass()->ImplementsInterface(UArpgQuestAuthorityProvider::StaticClass()))
+    {
+        return false;
+    }
+
+    // Always use the generated interface thunk. Directly invoking _Implementation
+    // bypasses Blueprint overrides on native interface implementers.
+    return IArpgQuestAuthorityProvider::Execute_ResolveCompletedQuest(
+        Provider, PlayerOwner, QuestId,
+        OutStablePlayerId, OutCompletionRevision, bOutDebugEvent);
 }
 
 FArpgKnowledgeGrantAdapterResult UArpgKnowledgeGrantAdapterComponent::Failure(

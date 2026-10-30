@@ -4,6 +4,8 @@
 
 **作者与版权人：xunyv**  
 
+当前合并分支在 0.4.2 基线上加入 Claim 级语义审查、`ClientRequestId` 幂等、每 NPC Provider、JSON 格式修复与有限重试、确定性授权兜底和人格热切换。
+
 专用于单机或联机 ARPG 的 Unreal Engine Runtime 插件。0.4.0 增加插件原生的玩家自带密钥（BYOK）AI-NPC 角色扮演入口：玩家可在运行时面板连接兼容 OpenAI Chat Completions 请求与响应格式的服务，每个挂载 `AI NPC Dialogue Component` 的 NPC 自动建立独立本地会话。API Key、Session 状态和最近的已批准对话只在当前游戏进程中使用，不由插件持久化；玩家明确同意后，角色说明、当轮授权事实和玩家当前发言会发送给对话服务，机械校验后的候选文本与允许事实会发送给配置的语义审查服务。自由生成的模型候选必须依次通过严格 JSON、机械事实守卫和语义审查，正式出口只消费 `FinalApprovedText`。
 
 ```text
@@ -247,7 +249,7 @@ flowchart TD
 
 将 `MyAiTownKnowledgeGrant` 整个目录复制到 Unreal 项目的 `Plugins/` 下，重新生成项目文件并编译。插件只使用 UE 内置的 GameplayTags、HTTP、JSON、UMG 和 Slate 模块，不依赖第三方模型 SDK 或数据库。
 
-`0.4.2` 源码已通过 UE 5.8.4 / Win64 隔离 BuildPlugin 验证及插件 Automation 12/12；二进制包以正式发布资产为准。安装、宿主发布前检查与已知边界见 [INSTALL.md](INSTALL.md)，官方构建清单见 [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)。其他引擎版本或平台应使用源码重新编译。
+`0.4.2` 源码已通过 UE 5.8.4 / Win64 隔离 BuildPlugin 验证及插件 Automation 20/20；二进制包以正式发布资产为准。安装、宿主发布前检查与已知边界见 [INSTALL.md](INSTALL.md)，官方构建清单见 [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)。其他引擎版本或平台应使用源码重新编译。
 
 单机 ARPG 推荐把 `Knowledge Grant Component` 挂在跨关卡可恢复的玩家 Actor 或 PlayerState 上；联机 ARPG 推荐挂在服务器权威且可复制的 PlayerState 上。不要挂在每个 NPC 上。
 
@@ -360,13 +362,21 @@ flowchart TD
 - `MyAiTown.KnowledgeGrant.Runtime.ContextCollector`
 - `MyAiTown.KnowledgeGrant.Runtime.SemanticReviewContract`
 - `MyAiTown.KnowledgeGrant.Runtime.AiNpcProviderContract`
+- `MyAiTown.KnowledgeGrant.Runtime.QuestAuthorityBlueprintDispatch`
+- `MyAiTown.KnowledgeGrant.Runtime.SemanticRequestCorrelation`
+- `MyAiTown.KnowledgeGrant.Runtime.RequestIdempotency`
+- `MyAiTown.KnowledgeGrant.Runtime.StaleResponseRejection`
+- `MyAiTown.KnowledgeGrant.Runtime.MultiProviderRouting`
+- `MyAiTown.KnowledgeGrant.Runtime.DialogueFormatRepair`
+- `MyAiTown.KnowledgeGrant.Runtime.DeterministicAuthorizedFallback`
+- `MyAiTown.KnowledgeGrant.Runtime.SemanticClaimGates`
 - `MyAiTown.KnowledgeGrant.Reaction.PersonalityAndAffect`
 - `MyAiTown.KnowledgeGrant.Reaction.DelayedReceipt`
 - `KnowledgeGrantHost.Network.FKnowledgeAuthorityIsolationNetworkTest.AuthorityAndPlayerIsolation`（宿主 Editor 专用）
 
 自动化测试覆盖：公共任务常识可用但未来细节不可用、后续骨牌乱序拒绝、每次事件只新增当前事实、任务包兼容、事件幂等、事件 ID 换包冲突、注册表一致的快照恢复、跨版本/伪造/缺前置/循环/缺事件历史快照拒绝、无效但未授权注册包不阻塞恢复、语境隔离与 Collector 取实时 Tags、空证据拦截、整段/逐条策略、陈旧/篡改视图拒绝、错专名、漏报受保护专名、错数字、正负号与小数、中文书写数字、反转否定、畸形/越界模型 JSON、撤销依赖保护与可选历史上限，以及同一事实结合不同人格形成不同反应。Receiver 测试证明共享 NPC 可分别记录玩家 A/B 的同名事件、单个玩家内部仍幂等、非 Authority 拒绝、受众/事件 ID 规范化、事件换包冲突、伪造越界反应拒绝和可选 receipt 上限。宿主演示还验证清空后 HUD 不保留旧反应、恢复后从 Receiver 快照重建可见反应。宿主网络测试另以专用服务器和两个真实 PIE 客户端验证：玩家 A 的授权复制后不会出现在玩家 B，客户端直接授予与恢复均返回 `authority_required` 且不改变修订号。
 
-本插件已在 Unreal Engine 5.8.4 完成隔离 BuildPlugin：UHT、Editor Development、Game Development 与 Game Shipping 均通过。最终构建包在 UE 5.8.4 临时宿主中完成插件 Automation 12/12，0 警告、0 失败。旧版宿主与联机测试只作为历史集成基线，不冒充本轮 UE 5.8 结果；完整边界见 [VALIDATION.md](VALIDATION.md)。
+本插件已在 Unreal Engine 5.8.4 完成隔离 BuildPlugin：UHT、Editor Development、Game Development 与 Game Shipping 均通过。最终构建包在 UE 5.8.4 临时宿主中完成插件 Automation 20/20，0 警告、0 失败。旧版宿主与联机测试只作为历史集成基线，不冒充本轮 UE 5.8 结果；完整边界见 [VALIDATION.md](VALIDATION.md)。
 
 没有 Unreal 工具链时可先运行 `node Scripts/validate-plugin.mjs`。它只验证插件结构和关键边界，不能替代 UnrealHeaderTool、C++ 编译或 Automation Test。
 

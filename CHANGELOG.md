@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- 新增 Claim 级语义审查：逐条判断事实/非事实、支持度、矛盾、越权、任务泄露、角色契合、置信度和 EvidenceFactIds，并保留最差 Claim 诊断。
+- 新增 `ClientRequestId` 请求幂等、输入哈希、授权 epoch/作用域指纹校验、pending 查询、已完成结果复用和过期响应丢弃。
+- 新增每 NPC `ProviderProfileId` 路由，允许不同 NPC 使用独立模型、地址和凭据。
+- 新增严格 JSON 格式修复与有限网络重试；连接失败和 429 可重试，普通 400 与格式错误不盲目重试。
+- 新增确定性授权事实兜底、受约束的非事实角色扮演和人格热切换。
+- 保留 0.4.2 两项修复：任务核验始终经 `Execute_ResolveCompletedQuest` thunk；语义审查请求在调用点直接配对，不依赖临时成员。
+- 自动化扩展到 20 组，新增 `QuestAuthorityBlueprintDispatch`、`SemanticRequestCorrelation`、`RequestIdempotency`、`StaleResponseRejection`、`MultiProviderRouting`、`DialogueFormatRepair`、`DeterministicAuthorizedFallback`、`SemanticClaimGates`。
+
 ## 0.4.2 - 2026-10-26
 
 - 修复:`ARPG Knowledge Grant Adapter` 核验任务时改为恒定经接口 thunk(`Execute_ResolveCompletedQuest`)调度;此前原生类实现者会被直接调用 `ResolveCompletedQuest_Implementation`,导致蓝图子类对 `ResolveCompletedQuest` 的覆写被静默跳过,任务核验结果取自原生基线而非项目覆写。
