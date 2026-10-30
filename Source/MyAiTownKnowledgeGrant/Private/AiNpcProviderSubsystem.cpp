@@ -386,10 +386,8 @@ bool UAiNpcProviderSubsystem::BuildDialogueRequestBody(
         "Return exactly one JSON object and no markdown. The root must contain exactly one field named claims. "
         "claims must contain at least one item. Every item must contain exactly claimId, text, evidenceFactIds, "
         "claimedEntities, claimedNumbers, negated. evidenceFactIds must contain exact FactId strings copied from "
-        "AUTHORIZED TURN FACTS. claimedEntities must list every named entity used in text, copied exactly from the "
-        "AllowedEntities of the cited facts; it may be a subset when the text uses only part of a fact. "
-        "claimedNumbers follows the same rule using AllowedNumbers. Every declared token must appear verbatim in text; "
-        "use [] when none. Each claim text must contain exactly one independently reviewable proposition. Split factual "
+        "AUTHORIZED TURN FACTS. claimedEntities and claimedNumbers are optional untrusted diagnostics: use [] when "
+        "none, and do not treat them as authorization sources. Each claim text must contain exactly one independently reviewable proposition. Split factual "
         "assertions, non-factual reactions, advice, intentions, requests, and questions into separate claim items. Never "
         "combine a greeting, conversational transition, first-person present activity, or immediate intention with a "
         "world-state assertion in the same claim item. A sentence such as 'I am reviewing the report; three guards are "
@@ -452,7 +450,8 @@ bool UAiNpcProviderSubsystem::BuildDialogueRepairRequestBody(
         "specific failure instead of repeating the candidate. Repair rules: model_json_* means rebuild the exact schema "
         "and limits; dialogue_claim_fact_not_grounded means remove unknown FactIds or the unsupported claim; "
         "dialogue_claim_entity_mismatch means use only exact AllowedEntities; dialogue_claim_number_mismatch means use "
-        "only exact AllowedNumbers and keep every number in text consistent; dialogue_claim_negation_mismatch means make "
+        "only exact AllowedNumbers and keep every number in text consistent; claimedEntities and claimedNumbers are "
+        "diagnostics only and never authorize a claim; dialogue_claim_negation_mismatch means make "
         "every claim atomic, remove unsupported negative wording, or set negated to match both text and every cited fact; "
         "dialogue_claim_uncited_roleplay_unsafe means either cite an exact supporting FactId or rewrite as a non-factual "
         "reaction, question, request, intention, or explicit proposal with empty metadata. Never reverse a fact's meaning. "
@@ -643,7 +642,8 @@ bool UAiNpcProviderSubsystem::BuildReviewRequestBody(
         "taskLeakRiskScore, roleFitScore, confidenceScore. claimType is factual or non_factual. support is supported, "
         "partial, or unsupported. contradiction, overreach, and taskLeak are none, possible, or clear. roleFit is good, "
         "weak, or bad. confidence is high, medium, or low. Every score is a finite JSON number from 0 to 1. "
-        "evidenceFactIds may contain only exact allowedFacts IDs; factual claims require at least one. Judge negation as "
+        "evidenceFactIds must be a non-empty subset of that claim's candidateEvidenceFactIds for factual claims; "
+        "non_factual claims must use []. Judge negation as "
         "a relation to evidence: distinguish harmless phrasing from reversing happened/not-happened or locked/unlocked "
         "state. A claim with candidateEvidenceFactIds is factual; a claim without them is non_factual, and your claimType "
         "must match. For non_factual claims, support is diagnostic only and may be unsupported; judge their safety using "
@@ -700,6 +700,9 @@ bool UAiNpcProviderSubsystem::ParseReviewResponse(const FString& ResponseJson,
     for (const FName Id : OriginalRequest.AllowedClaimIds) AllowedSet.Add(Id);
     TSet<FName> AllowedFactSet;
     for (const FKnowledgeFact& Fact : OriginalRequest.AllowedFacts) AllowedFactSet.Add(Fact.FactId);
+    TMap<FName, const FKnowledgeDialogueClaim*> SourceClaims;
+    for (const FKnowledgeDialogueClaim& Claim : OriginalRequest.AllowedClaims)
+        SourceClaims.Add(Claim.ClaimId, &Claim);
     TSet<FName> ReviewedSet;
     const TSet<FString> AssessmentFields{
         TEXT("claimId"), TEXT("claimType"), TEXT("support"), TEXT("contradiction"),
@@ -771,6 +774,11 @@ bool UAiNpcProviderSubsystem::ParseReviewResponse(const FString& ResponseJson,
         if (!(*Object)->TryGetArrayField(TEXT("evidenceFactIds"), EvidenceValues)
             || EvidenceValues == nullptr)
         { OutError = TEXT("review_evidence_invalid"); return false; }
+        const FKnowledgeDialogueClaim* const* SourceClaim = SourceClaims.Find(Assessment.ClaimId);
+        if (SourceClaim == nullptr)
+        { OutError = TEXT("review_claim_coverage_invalid"); return false; }
+        TSet<FName> SourceEvidence;
+        for (const FName FactId : (*SourceClaim)->EvidenceFactIds) SourceEvidence.Add(FactId);
         TSet<FName> SeenEvidence;
         for (const TSharedPtr<FJsonValue>& EvidenceValue : *EvidenceValues)
         {
@@ -778,13 +786,17 @@ bool UAiNpcProviderSubsystem::ParseReviewResponse(const FString& ResponseJson,
             if (!EvidenceValue.IsValid() || !EvidenceValue->TryGetString(FactIdText))
             { OutError = TEXT("review_evidence_invalid"); return false; }
             const FName FactId(*FactIdText);
-            if (FactId.IsNone() || !AllowedFactSet.Contains(FactId) || SeenEvidence.Contains(FactId))
+            if (FactId.IsNone() || !AllowedFactSet.Contains(FactId)
+                || !SourceEvidence.Contains(FactId) || SeenEvidence.Contains(FactId))
             { OutError = TEXT("review_evidence_invalid"); return false; }
             SeenEvidence.Add(FactId);
             Assessment.EvidenceFactIds.Add(FactId);
         }
         if (Assessment.ClaimType == EKnowledgeClaimType::Factual
             && Assessment.EvidenceFactIds.IsEmpty())
+        { OutError = TEXT("review_evidence_invalid"); return false; }
+        if (Assessment.ClaimType == EKnowledgeClaimType::NonFactual
+            && !Assessment.EvidenceFactIds.IsEmpty())
         { OutError = TEXT("review_evidence_invalid"); return false; }
 
         auto ReadScore = [&OutError, &Object](const TCHAR* Field, float& Out) -> bool

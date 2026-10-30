@@ -5,7 +5,7 @@
 
 ## 本轮结论
 
-0.4.2 / Schema v3 已通过 UE 5.8.4 真实编译与自动化。隔离 `RunUAT BuildPlugin` 覆盖 UHT、Editor Development、Game Development 和 Game Shipping；最终构建包在最小 UE 5.8.4 宿主中加载并完成插件 Automation 20/20，0 警告、0 失败。Provider 合同覆盖显式同意、HTTPS、Key 不进入 JSON、当轮字段披露和结构化语义响应；0.4.2 的任务接口调度与共享语义审查路由修复均包含在本次构建和测试源码中。
+0.4.3 / Schema v3 已通过 UE 5.8.4 真实编译与自动化。隔离 `RunUAT BuildPlugin` 覆盖 UHT、Editor Development、Game Development 和 Game Shipping；最终构建包在最小 UE 5.8.4 宿主中加载并完成插件 Automation 20/20，0 警告、0 失败。Provider 合同覆盖显式同意、HTTPS、Key 不进入 JSON、当轮字段披露和结构化语义响应；0.4.2 的任务接口调度与共享语义审查路由修复均包含在本次构建和测试源码中。
 
 隔离 ARPG 宿主 5/5、专用服务器/双客户端 PIE 及离屏关卡验收来自 UE 5.7.4 历史集成基线，本轮未在 UE 5.8.4 重跑，因此不计入本轮 20/20 结果。
 

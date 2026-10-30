@@ -69,7 +69,9 @@ struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeDialogueClaim
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge") FName ClaimId;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge", meta = (MultiLine = true)) FString Text;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge") TArray<FName> EvidenceFactIds;
+    /** Untrusted model diagnostics; the guard derives effective tokens from Text and never uses this as authorization. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge") TArray<FString> ClaimedEntities;
+    /** Untrusted model diagnostics; the guard derives effective tokens from Text and never uses this as authorization. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge") TArray<FString> ClaimedNumbers;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Knowledge") bool bNegated = false;
 };

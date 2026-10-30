@@ -1,5 +1,7 @@
 // Copyright 2026 xunyv.
 
+#if WITH_EDITORONLY_DATA
+
 #include "Tests/KnowledgeGrantTestTypes.h"
 
 void UKnowledgeQuestAuthorityDispatchProbe::ProcessEvent(
@@ -23,3 +25,5 @@ bool UKnowledgeQuestAuthorityDispatchProbe::ResolveCompletedQuest_Implementation
     bOutDebugEvent = false;
     return PlayerOwner == nullptr && QuestId == TEXT("quest.dispatch.probe");
 }
+
+#endif // WITH_EDITORONLY_DATA

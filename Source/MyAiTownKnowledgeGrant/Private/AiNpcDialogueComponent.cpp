@@ -128,7 +128,18 @@ FGuid UAiNpcDialogueComponent::SendPlayerMessageWithClientRequestId(
     if (TryResolveExistingClientRequest(
         ClientRequestId, InputHash, View, ExistingRequestId, OutError))
     {
-        return OutError == TEXT("client_request_conflict") ? FGuid() : ExistingRequestId;
+        if (OutError == TEXT("client_request_conflict")) return FGuid();
+        if (OutError == TEXT("request_duplicate_completed"))
+        {
+            FString ReplayError;
+            if (!ReplayClientRequestResult(ClientRequestId, ReplayError))
+            {
+                OutError = ReplayError;
+                return FGuid();
+            }
+        }
+        OutError.Reset();
+        return ExistingRequestId;
     }
     if (!PendingTurns.IsEmpty()) { OutError = TEXT("npc_request_pending"); return FGuid(); }
     const FString AuthorizedContext = BuildAuthorizedContext(View);
@@ -146,6 +157,7 @@ FGuid UAiNpcDialogueComponent::SendPlayerMessageWithClientRequestId(
         Pending.PersonaRevision = PersonaRevision;
         PendingTurns.Add(RequestId, MoveTemp(Pending));
 
+        PruneCompletedClientRequests(FMath::Max(1, MaxClientRequestRecords - 1));
         FClientRequestRecord Record;
         Record.InputHash = InputHash;
         Record.AuthorizationEpoch = View.AuthorizationEpoch;
@@ -169,6 +181,19 @@ bool UAiNpcDialogueComponent::TryGetClientRequestResult(
     if (Record == nullptr || !Record->bCompleted) return false;
     OutReply = Record->CompletedReply;
     OutReply.bDuplicateRequest = true;
+    return true;
+}
+
+bool UAiNpcDialogueComponent::ReplayClientRequestResult(FGuid ClientRequestId, FString& OutError)
+{
+    OutError.Reset();
+    FAiNpcFinalReply Reply;
+    if (!TryGetClientRequestResult(ClientRequestId, Reply))
+    {
+        OutError = TEXT("client_request_result_not_completed");
+        return false;
+    }
+    OnFinalReply.Broadcast(Reply);
     return true;
 }
 
@@ -236,7 +261,7 @@ FString UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
 {
     OutEvidenceFactIds.Reset();
     const FKnowledgeFact* Selected = nullptr;
-    int32 SelectedScore = INDEX_NONE;
+    int32 SelectedScore = 0;
     for (const FKnowledgeDocument& Document : KnowledgeView.AllowedDocuments)
     {
         for (const FKnowledgeFact& Fact : Document.Facts)
@@ -245,6 +270,7 @@ FString UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
             int32 Score = 0;
             for (const FString& Entity : Fact.Entities)
                 if (!Entity.IsEmpty() && PlayerText.Contains(Entity, ESearchCase::IgnoreCase)) ++Score;
+            if (Score <= 0) continue;
             if (Selected == nullptr || Score > SelectedScore
                 || (Score == SelectedScore
                     && Fact.FactId.ToString() < Selected->FactId.ToString()))
@@ -257,8 +283,7 @@ FString UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
     if (Selected == nullptr) return DefaultFallback.ToString();
 
     OutEvidenceFactIds.Add(Selected->FactId);
-    return Selected->Statement.TrimStartAndEnd()
-        + TEXT("\n如果你愿意，可以把看到的具体痕迹或方向告诉我。");
+    return Selected->Statement.TrimStartAndEnd();
 }
 
 void UAiNpcDialogueComponent::StampReplyFromTurn(
@@ -279,7 +304,31 @@ void UAiNpcDialogueComponent::CacheCompletedReply(
     FClientRequestRecord* Record = ClientRequests.Find(Turn->ClientRequestId);
     if (Record == nullptr) return;
     Record->bCompleted = true;
+    Record->CompletedAtSeconds = FPlatformTime::Seconds();
     Record->CompletedReply = Reply;
+    PruneCompletedClientRequests(FMath::Clamp(MaxClientRequestRecords, 1, 4096));
+}
+
+void UAiNpcDialogueComponent::PruneCompletedClientRequests(int32 MaxRecords)
+{
+    const int32 Cap = FMath::Clamp(MaxRecords, 1, 4096);
+    if (ClientRequests.Num() <= Cap) return;
+
+    TArray<FGuid> CompletedIds;
+    for (const TPair<FGuid, FClientRequestRecord>& Pair : ClientRequests)
+    {
+        if (Pair.Value.bCompleted) CompletedIds.Add(Pair.Key);
+    }
+    CompletedIds.Sort([this](const FGuid& A, const FGuid& B)
+    {
+        return ClientRequests.FindRef(A).CompletedAtSeconds
+            < ClientRequests.FindRef(B).CompletedAtSeconds;
+    });
+    for (const FGuid& Id : CompletedIds)
+    {
+        if (ClientRequests.Num() <= Cap) break;
+        ClientRequests.Remove(Id);
+    }
 }
 
 bool UAiNpcDialogueComponent::TryResolveExistingClientRequest(

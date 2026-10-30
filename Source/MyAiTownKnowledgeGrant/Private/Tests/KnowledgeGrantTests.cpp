@@ -1,4 +1,4 @@
-#if WITH_DEV_AUTOMATION_TESTS
+#if WITH_DEV_AUTOMATION_TESTS && WITH_EDITORONLY_DATA
 
 #include "GameFramework/Actor.h"
 #include "ArpgKnowledgeGrantAdapterComponent.h"
@@ -365,9 +365,10 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
     TArray<FName> FallbackEvidence;
     const FString AuthorizedFallback = UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
         TEXT("王廷秘印在哪里？"), SealView, FText::FromString(TEXT("默认兜底")), FallbackEvidence);
-    TestTrue(TEXT("Deterministic fallback quotes one authorized fact and records its FactId"),
-        AuthorizedFallback.StartsWith(Seal->Documents[0].Facts[0].Statement)
-        && FallbackEvidence == TArray<FName>{FactIdForDocument(TEXT("royal_seal_found"))});
+    TestEqual(TEXT("Deterministic fallback returns the authorized fact without adding scripted prose"),
+        AuthorizedFallback, Seal->Documents[0].Facts[0].Statement);
+    TestTrue(TEXT("Deterministic fallback records its FactId"),
+        FallbackEvidence == TArray<FName>{FactIdForDocument(TEXT("royal_seal_found"))});
     FDialogueKnowledgeView EmptyFallbackView;
     TestEqual(TEXT("A view without authorized facts uses only the trusted default fallback"),
         UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
@@ -1294,6 +1295,22 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("A completed request is consumed exactly once"),
         Coordinator->GetPendingReviewCount(), 0);
 
+    const FKnowledgeSemanticReviewBeginResult MismatchBegin = Coordinator->BeginSemanticReview(
+        Player, View, {Collector}, Mechanical, Policy);
+    FKnowledgeSemanticReviewResponse MismatchResponse;
+    MismatchResponse.RequestId = MismatchBegin.Request.RequestId;
+    MismatchResponse.ReviewerName = TEXT("test-reviewer");
+    MismatchResponse.ReviewerVersion = TEXT("1");
+    MismatchResponse.ClaimAssessments.Add(MakePassingAssessment(
+        MismatchBegin.Request.AllowedClaimIds[0],
+        {FactIdForDocument(TEXT("ruined_temple_location"))}));
+    const FKnowledgeSemanticReviewResult Mismatch =
+        Coordinator->CompleteSemanticReview(MismatchResponse);
+    TestTrue(TEXT("Reviewer evidence must remain bound to the source claim"),
+        !Mismatch.bApproved
+        && Mismatch.Outcome == EKnowledgeSemanticReviewOutcome::Error
+        && Mismatch.Error == TEXT("semantic_review_assessment_invalid"));
+
     const FKnowledgeSemanticReviewBeginResult StaleBegin = Coordinator->BeginSemanticReview(
         Player, View, {Collector}, Mechanical, Policy);
     TestTrue(TEXT("A second semantic request can wait asynchronously"), StaleBegin.bOk);
@@ -1705,6 +1722,34 @@ bool FKnowledgeRequestIdempotencyTest::RunTest(const FString& Parameters)
         Error, FString(TEXT("client_request_conflict")));
     TestFalse(TEXT("A conflict does not expose a reusable provider request id"),
         ResolvedRequestId.IsValid());
+
+    Dialogue->MaxClientRequestRecords = 2;
+    Dialogue->ClientRequests.Reset();
+    TArray<FGuid> CachedIds;
+    for (int32 Index = 0; Index < 3; ++Index)
+    {
+        const FGuid Id = FGuid::NewGuid();
+        UAiNpcDialogueComponent::FClientRequestRecord Cached;
+        Cached.bCompleted = true;
+        Cached.CompletedAtSeconds = static_cast<double>(Index);
+        Cached.CompletedReply.FinalApprovedText = FString::Printf(TEXT("cached-%d"), Index);
+        Dialogue->ClientRequests.Add(Id, Cached);
+        CachedIds.Add(Id);
+    }
+    Dialogue->PruneCompletedClientRequests(2);
+    TestEqual(TEXT("Completed idempotency records are capped"), Dialogue->ClientRequests.Num(), 2);
+    TestFalse(TEXT("The oldest completed record is pruned first"),
+        Dialogue->ClientRequests.Contains(CachedIds[0]));
+    TestTrue(TEXT("The newest completed record remains available"),
+        Dialogue->ClientRequests.Contains(CachedIds[2]));
+
+    FString ReplayError;
+    TestTrue(TEXT("A cached completed reply can be replayed"),
+        Dialogue->ReplayClientRequestResult(CachedIds[2], ReplayError)
+        && ReplayError.IsEmpty());
+    TestFalse(TEXT("Replaying a missing or pending result fails closed"),
+        Dialogue->ReplayClientRequestResult(FGuid::NewGuid(), ReplayError)
+        && ReplayError.IsEmpty());
     return true;
 }
 
@@ -1862,10 +1907,16 @@ bool FKnowledgeDeterministicAuthorizedFallbackTest::RunTest(const FString& Param
     const FString Result = UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
         TEXT("Where was the bell found?"), View,
         FText::FromString(TEXT("No authorized fact.")), Evidence);
-    TestTrue(TEXT("The fallback quotes one authorized fact rather than generating a replacement"),
-        Result.StartsWith(BellFact.Statement));
+    TestEqual(TEXT("The fallback quotes one authorized fact rather than generating a replacement"),
+        Result, BellFact.Statement);
     TestEqual(TEXT("The fallback exposes exactly the selected FactId"), Evidence.Num(), 1);
     TestEqual(TEXT("The selected evidence is deterministic"), Evidence[0], BellFact.FactId);
+    const FString NoMatchResult = UAiNpcDialogueComponent::BuildAuthorizedFactFallback(
+        TEXT("Tell me something unrelated."), View,
+        FText::FromString(TEXT("No authorized fact.")), Evidence);
+    TestEqual(TEXT("A question with no entity match uses the trusted default instead of an unrelated fact"),
+        NoMatchResult, FString(TEXT("No authorized fact.")));
+    TestTrue(TEXT("A no-match fallback exposes no evidence"), Evidence.IsEmpty());
 
     View.AllowedDocuments.Reset();
     TestEqual(TEXT("An empty authorized view uses only the trusted default"),

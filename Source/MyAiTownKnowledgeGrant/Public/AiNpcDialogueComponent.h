@@ -33,11 +33,16 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Guard") TObjectPtr<UKnowledgeSemanticReviewComponent> SemanticReviewComponent;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Guard") TObjectPtr<UKnowledgeSemanticReviewPolicy> SemanticReviewPolicy;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Privacy", meta=(ClampMin="1", ClampMax="200")) int32 MaxLocalTranscriptTurns = 24;
+    /** Maximum completed client-request records retained for idempotent replay. Oldest completed records are pruned. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Request", meta=(ClampMin="1", ClampMax="4096")) int32 MaxClientRequestRecords = 128;
 
     UPROPERTY(BlueprintAssignable, Category="AI NPC") FAiNpcFinalReplySignature OnFinalReply;
 
     UFUNCTION(BlueprintCallable, Category="AI NPC") FGuid SendPlayerMessage(const FString& PlayerText, FString& OutError);
-    /** Idempotent request entry point. Reusing the same id, input and knowledge epoch never calls the provider twice. */
+    /**
+     * Idempotent request entry point. A pending duplicate returns the original request id and waits for its callback;
+     * a completed duplicate replays the cached OnFinalReply. Conflicting input for the same id fails closed.
+     */
     UFUNCTION(BlueprintCallable, Category="AI NPC|Request")
     FGuid SendPlayerMessageWithClientRequestId(
         const FString& PlayerText, FGuid ClientRequestId, FString& OutError);
@@ -45,6 +50,9 @@ public:
     bool IsClientRequestPending(FGuid ClientRequestId) const;
     UFUNCTION(BlueprintPure, Category="AI NPC|Request")
     bool TryGetClientRequestResult(FGuid ClientRequestId, FAiNpcFinalReply& OutReply) const;
+    /** Broadcasts a cached completed reply with bDuplicateRequest=true. */
+    UFUNCTION(BlueprintCallable, Category="AI NPC|Request")
+    bool ReplayClientRequestResult(FGuid ClientRequestId, FString& OutError);
     UFUNCTION(BlueprintPure, Category="AI NPC|Request")
     bool HasPendingRequest() const { return !PendingTurns.IsEmpty(); }
     /** Atomically replaces the persona captured by the provider session. Pending replies from the old session are ignored. */
@@ -84,6 +92,7 @@ private:
         int64 ScopeFingerprint = 0;
         FGuid OriginalRequestId;
         bool bCompleted = false;
+        double CompletedAtSeconds = 0.0;
         FAiNpcFinalReply CompletedReply;
     };
 
@@ -106,6 +115,7 @@ private:
         const FPendingTurn* Turn = nullptr);
     void StampReplyFromTurn(FAiNpcFinalReply& Reply, const FPendingTurn* Turn) const;
     void CacheCompletedReply(const FPendingTurn* Turn, const FAiNpcFinalReply& Reply);
+    void PruneCompletedClientRequests(int32 MaxRecords);
     bool TryResolveExistingClientRequest(
         FGuid ClientRequestId, const FString& InputHash,
         const FDialogueKnowledgeView& View, FGuid& OutRequestId, FString& OutError) const;

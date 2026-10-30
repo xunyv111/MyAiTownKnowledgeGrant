@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITORONLY_DATA
+
 #include "CoreMinimal.h"
 #include "ArpgKnowledgeGrantAdapterComponent.h"
 #include "KnowledgeGrantTestTypes.generated.h"
@@ -23,3 +25,5 @@ public:
         FString& OutStablePlayerId, int32& OutCompletionRevision,
         bool& bOutDebugEvent) const override;
 };
+
+#endif // WITH_EDITORONLY_DATA

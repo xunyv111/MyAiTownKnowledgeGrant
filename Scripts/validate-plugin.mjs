@@ -60,7 +60,7 @@ try {
   }
   if (descriptor.Modules?.[0]?.Type !== "Runtime") errors.push("plugin module must be Runtime");
   if (descriptor.CreatedBy !== "xunyv") errors.push("plugin descriptor author must be xunyv");
-  if (descriptor.Version !== 6 || descriptor.VersionName !== "0.4.2") errors.push("plugin descriptor must be version 0.4.2");
+  if (descriptor.Version !== 6 || descriptor.VersionName !== "0.4.3") errors.push("plugin descriptor must be version 0.4.3");
 } catch (error) {
   errors.push(`plugin descriptor is invalid JSON: ${error.message}`);
 }

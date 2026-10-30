@@ -235,12 +235,19 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::CompleteSemant
                     && IsUnitScore(Assessment.TaskLeakRiskScore)
                     && IsUnitScore(Assessment.RoleFitScore)
                     && IsUnitScore(Assessment.ConfidenceScore);
+                TSet<FName> SourceEvidence;
+                if (SourceClaim != nullptr)
+                {
+                    for (const FName FactId : (*SourceClaim)->EvidenceFactIds)
+                        SourceEvidence.Add(FactId);
+                }
                 TSet<FName> SeenEvidence;
                 bool bEvidenceValid = true;
                 for (const FName FactId : Assessment.EvidenceFactIds)
                 {
                     if (FactId.IsNone() || SeenEvidence.Contains(FactId)
-                        || !AllowedFactIds.Contains(FactId))
+                        || !AllowedFactIds.Contains(FactId)
+                        || !SourceEvidence.Contains(FactId))
                     {
                         bEvidenceValid = false;
                         break;
@@ -248,7 +255,11 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::CompleteSemant
                     SeenEvidence.Add(FactId);
                 }
                 if (Assessment.ClaimType == EKnowledgeClaimType::Factual
-                    && Assessment.EvidenceFactIds.IsEmpty()) bEvidenceValid = false;
+                    && (Assessment.EvidenceFactIds.IsEmpty() || SourceEvidence.IsEmpty()))
+                    bEvidenceValid = false;
+                if (Assessment.ClaimType == EKnowledgeClaimType::NonFactual
+                    && !Assessment.EvidenceFactIds.IsEmpty())
+                    bEvidenceValid = false;
                 if (!bScoresValid || !bEvidenceValid || !bClaimTypeMatches)
                     bAssessmentInvalid = true;
 

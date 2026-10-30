@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.3 - 2026-10-31
 
 - 新增 Claim 级语义审查：逐条判断事实/非事实、支持度、矛盾、越权、任务泄露、角色契合、置信度和 EvidenceFactIds，并保留最差 Claim 诊断。
 - 新增 `ClientRequestId` 请求幂等、输入哈希、授权 epoch/作用域指纹校验、pending 查询、已完成结果复用和过期响应丢弃。
