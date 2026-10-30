@@ -18,7 +18,7 @@
        └─ 当前玩家知识与语境引用
 ```
 
-每个 NPC 并不启动一个重复的 HTTP 服务器，也不复制 API Key。它自动获得一个隔离的本地 Session；所有 Session 共享 GameInstance 级 Provider 网关、连接池和临时凭据。这是最小、可维护且不会随 NPC 数量线性复制秘密的实现。
+每个 NPC 并不启动一个重复的 HTTP 服务器，也不复制 API Key。它自动获得一个隔离的本地 Session，并可通过 `ProviderProfileId` 选择独立 Provider Profile；未指定时使用 GameInstance 级默认 Provider。每个 NPC 的 Session、请求和迟到响应都独立关联。
 
 ## 一轮对话
 
@@ -36,9 +36,9 @@ Dialogue Provider
 Model Adapter + Mechanical Guard
   ↓ FactId / 专名 / 数字 / 否定 / 实时语境检查
 Semantic Review Component
-  ↓ 第二 Provider 只返回 Approved / Blocked / Error
-重新核验 Revision + AuthorizationEpoch + ScopeFingerprint
-  ↓
+  ↓ 独立 Provider 返回每条 Claim 的支持度、矛盾、越权、任务泄露、角色契合和置信度
+本地重新核验 Revision + AuthorizationEpoch + ScopeFingerprint
+  ↓ 逐 Claim 门禁 + 证据绑定 + 覆盖检查
 FinalApprovedText
   ↓
 字幕 / 语音 / 行为
@@ -54,7 +54,10 @@ FinalApprovedText
 - 远程地址必须是 HTTPS，HTTP 只允许显式启用的 loopback；
 - 未勾选传输同意、URL/模型/Key 缺失时拒绝请求；
 - Key 只放入 HTTP `Authorization` Header，不进入 JSON、配置、存档或日志；
-- 对话生成与语义审查是两个逻辑 Channel，可使用不同厂商，也可由玩家选择复用；
+- 对话生成与语义审查是两个逻辑 Channel；默认要求审查通道与对话通道使用不同的 URL 或模型；
+- 每个 NPC 可通过 `ProviderProfileId` 使用独立模型、地址和凭据；
+- 对话请求支持 `ClientRequestId` 幂等、输入哈希、授权 epoch/作用域指纹校验和过期响应丢弃；
+- 严格 JSON 失败可做一次受控格式修复；连接失败、429 和临时服务错误可有限重试；
 - 请求和 Session 使用 GUID 关联，NPC 销毁后关闭 Session，迟到结果不会串给另一个 NPC。
 
 ## 本地与上传边界
@@ -82,7 +85,8 @@ FinalApprovedText
 - 未同意：拒绝配置；
 - 云端失败或超时：不显示原始响应，使用可信 `ErrorText`；
 - JSON 不合法或事实越界：机械守卫阻止；
-- 语义审查失败：使用 `BlockedText` / `ErrorText`；
+- 语义审查失败：逐 Claim 安全门禁阻止，使用 `BlockedText` / `ErrorText`；
+- 证据不属于源 Claim、Claim 覆盖不完整、缺少评分或分数越界：失败关闭；
 - 等待期间玩家知识或语境变化：旧响应失效；
 - 没有语义审查组件：自由生成文本失败关闭。
 

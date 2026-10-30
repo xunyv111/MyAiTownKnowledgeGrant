@@ -29,7 +29,7 @@
 6. 在对话开始时用 `Knowledge Context Collector Component` 汇总场景、交互对象与专名 Tags。
 7. 调用 `Build Dialogue Knowledge View`，仅把 `Allowed Documents/Facts` 交给模型。
 8. 要求模型返回 README 中规定的严格 JSON；模型返回后把原始视图和实际 `Knowledge Context Collector` 组件交给 `Guard Knowledge Model Json Response For Collectors`，由插件内部读取实时语境 Tags。
-9. 自由生成台词把机械结果交给 `Knowledge Semantic Review Component`；宿主监听 `On Semantic Review Requested` 调用自己的 API/本地模型，再把批准、拦截或错误响应交回 `Complete Semantic Review`。
+9. 自由生成台词把机械结果交给 `Knowledge Semantic Review Component`；宿主监听 `On Semantic Review Requested` 调用自己的 API/本地模型，再把逐 Claim 的 `claimAssessments`（支持度、矛盾、越权、任务泄露、角色契合、置信度和 EvidenceFactIds）交回 `Complete Semantic Review`。缺失 Claim、证据不匹配或分数越界会失败关闭。
 10. 字幕、语音、行为树和正式日志只能消费 `Final Approved Text`，不得消费模型原文或机械 `Safe Text` 中间值。
 11. 需要撤销时调用 `Revoke Knowledge Pack` 并传入注册包；仍被依赖的包会返回 `pack_has_dependents`，应先撤销依赖者。
 12. 需要限制内存时设置 `Max Processed Grant Records` / `Max Receipt Records`；超限会显式失败，不会静默丢历史。

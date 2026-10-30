@@ -68,7 +68,7 @@
 
 ### 3.1 环境要求
 
-- Unreal Engine 5.8；仓库中的 0.4.0 已在 UE 5.8.4 / Win64 验证。
+- Unreal Engine 5.8；仓库中的 0.4.3 已在 UE 5.8.4 / Win64 验证。
 - Windows 源码编译需要 Visual Studio 2022、Desktop development with C++ 工作负载，以及与 UE 对应的 Windows SDK。
 - 纯 Blueprint 项目第一次加载源码插件时仍可能要求本机具备 C++ 编译工具链。
 
@@ -547,19 +547,33 @@ AI NPC Dialogue Component.On Final Reply
 }
 ```
 
-根对象和每个 Claim 都不能带额外字段。每个 Claim 必须使用唯一且非空的 `claimId`，并引用存在于当前 View 的 `FactId`。
+根对象和每个 Claim 都不能带额外字段。每个 Claim 必须使用唯一且非空的 `claimId`，并引用存在于当前 View 的 `FactId`。`claimedEntities` 和 `claimedNumbers` 是可选的不可信诊断字段；插件会从 `text` 重新提取有效专名/数字，不会把它们当作授权来源。
 
 ### 14.3 机械 Guard 检查什么
 
 - JSON 结构和字段类型；
 - Claim ID 是否为空或重复；
 - `evidenceFactIds` 是否属于当前允许事实；
-- 台词中的专名是否按 `claimedEntities` 声明；
+- 台词中的受保护专名、地点、组织、任务物品是否属于当前允许事实；
 - 数字、正负号、小数和项目数字词是否一致；
 - 否定状态是否与事实一致；
 - 授权修订、授权世代和当前语境是否仍与 View 一致。
 
-模型说得通顺不能替代这些检查。
+`claimedEntities` / `claimedNumbers` 只作为不可信诊断输出，不能授权任何 Claim。模型说得通顺也不能替代这些检查。
+
+### 14.4 语义审查的 Claim 合同
+
+语义审查器必须为每条 Claim 返回一条 `claimAssessments`，包含：
+
+- `claimType`：`factual` 或 `non_factual`；
+- `support`：`supported` / `partial` / `unsupported`；
+- `contradiction`、`overreach`、`taskLeak`：`none` / `possible` / `clear`；
+- `roleFit`：`good` / `weak` / `bad`；
+- `confidence`：`high` / `medium` / `low`；
+- `evidenceFactIds`：必须是该 Claim 原始证据的子集；
+- 六个评分字段（事实支持、矛盾、越权、任务泄露、角色契合、置信度）：仅诊断，不能用总分补偿安全失败。
+
+缺失 Claim、重复 Claim、额外 Claim、证据不匹配、分数越界或任一安全枚举失败，整段都会失败关闭。
 
 ## 15. 配置 NPC 人格反应
 

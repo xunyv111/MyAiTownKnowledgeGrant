@@ -14,7 +14,7 @@
 4. 任务或世界事件真实完成后，调用 `Grant Knowledge From Quest` 或 `Grant Knowledge From World Event`；正式 ARPG 推荐通过固定 Registry 和 Adapter 授予。
 5. 对话前由 `Knowledge Context Collector` 汇总场景、交互对象和明确提及的专名，再调用 `Build Dialogue Knowledge View`。
 6. 只把视图中的允许事实发送给模型；模型必须返回带 `evidenceFactIds` 的严格 JSON。
-7. 候选先经过机械 Guard，再经过独立 Semantic Review。字幕、语音、行为树和正式日志只能消费 `FinalApprovedText`。
+7. 候选先经过机械 Guard，再经过独立 Semantic Review；审查器按 Claim 返回支持度、矛盾、越权、任务泄露、角色契合、置信度和证据绑定，本地逐 Claim 门禁通过后才生成 `FinalApprovedText`。字幕、语音、行为树和正式日志只能消费该字段。
 8. NPC 的人格反应由 `Npc Knowledge Receiver Component` 延迟生成和保存；它不是知识授权门，不能让 NPC 绕过玩家授权获得事实。
 
 ## 多米诺骨牌原则
@@ -31,8 +31,9 @@
 ## 两道知识门
 
 - 输入门：`玩家已授权资料 ∩ 当前语境激活资料`，输出本轮唯一的 `FDialogueKnowledgeView`。
-- 输出门：严格 JSON → 机械事实守卫 → 独立语义审查 → `FinalApprovedText`。
-- 失败关闭：视图过期、语境变化、授权世代变化、证据不足、JSON 非法、审查超时或拒绝时，都不得显示模型原文。
+- 输出门：严格 JSON → 机械事实守卫 → 独立逐 Claim 语义审查 → 本地证据/覆盖检查 → `FinalApprovedText`。
+- 失败关闭：视图过期、语境变化、授权世代变化、证据不足、JSON 非法、Claim 缺失、证据不匹配、评分越界、审查超时或拒绝时，都不得显示模型原文。
+- 幂等：同一 `ClientRequestId + 输入哈希 + 授权 epoch/作用域指纹` 不重复调用 Provider；completed 重复回放缓存回复，输入冲突拒绝。
 
 ## 单机与联机边界
 
@@ -49,6 +50,7 @@
   → 模型返回严格 JSON
   → Guard Knowledge Model Json Response For Collectors
   → Begin Semantic Review
+  → ClaimAssessments（证据绑定 + 安全门禁）
   → FinalApprovedText
   → 字幕 / 语音 / 行为 / 正式日志
 ```

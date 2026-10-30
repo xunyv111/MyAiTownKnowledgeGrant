@@ -33,7 +33,7 @@ The Fab source package intentionally excludes `Binaries`, `Build`, `Intermediate
 6. Add `Knowledge Context Collector Component` to collect scene, interaction, and explicit-mention tags.
 7. Call `Build Dialogue Knowledge View` and send only allowed documents and facts to the model.
 8. Pass strict model JSON through `Guard Knowledge Model Json Response For Collectors` with the original view, actual collectors, and a trusted guard policy.
-9. For free-form dialogue, pass the mechanical result through `Knowledge Semantic Review Component`.
+9. For free-form dialogue, pass the mechanical result through `Knowledge Semantic Review Component`; the host returns per-claim `claimAssessments` covering support, contradiction, overreach, task leak, role fit, confidence, and source-bound `EvidenceFactIds`. Missing claims, evidence mismatches, or invalid scores fail closed.
 10. Use only `Final Approved Text` for subtitles, voice, behavior, and production logs.
 
 ## Optional AI Provider

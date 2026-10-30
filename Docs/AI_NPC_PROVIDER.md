@@ -30,7 +30,9 @@
 5. 配置 `Knowledge Semantic Review Component` 和 Review Policy；
 6. 调用 `Send Player Message`。
 
-组件在 `BeginPlay` 调用 `OpenNpcSession`，为每个 NPC 生成独立 SessionId。本地 Transcript 只记录已完成的最终文本，默认最多 24 轮；它不会进入 HTTP 请求。所有 NPC 共享 GameInstance Provider 网关和进程内凭据，因此“每 NPC 一个 API”实际实现为“每 NPC 一个隔离会话”，不会复制 Key、连接池或网络服务。
+组件在 `BeginPlay` 调用 `OpenNpcSession`，为每个 NPC 生成独立 SessionId。本地 Transcript 只记录已完成的最终文本，默认最多 24 轮；它不会进入 HTTP 请求。默认情况下 NPC 共享 GameInstance 级 Provider；也可以通过 Persona 的 `ProviderProfileId` 为单个 NPC 选择独立 Provider Profile，复用同一网关但使用不同模型、地址和凭据。
+
+对话请求支持 `ClientRequestId` 幂等：相同 `ClientRequestId + 输入哈希 + AuthorizationEpoch/ScopeFingerprint` 不会重复调用 Provider。pending 重复返回原请求 ID，completed 重复会重放缓存回复；同一 ID 携带不同输入会失败关闭。
 
 ## 实际上传给厂商的数据
 
@@ -57,8 +59,10 @@
 - 远程厂商只允许 HTTPS；HTTP 仅允许显式启用的 loopback。
 - 未勾选传输同意、未配置 Key、配置不完整或请求失败时不联网并返回明确错误。
 - Provider 原文不会通过 Blueprint 正式出口；`AI NPC Dialogue Component` 只广播 `On Final Reply`。
-- Semantic Reviewer 只能批准、阻止或返回错误，不能提供替换台词。
+- Semantic Reviewer 返回逐 Claim 的 `claimAssessments`：支持度、矛盾、越权、任务泄露、角色契合、置信度和 EvidenceFactIds；不能提供替换台词。
+- 审查器证据必须属于源 Claim；缺失评分、覆盖不完整、证据不匹配或任一安全枚举失败都会失败关闭。
 - 语义服务不可用时使用宿主可信策略的 ErrorText，不退回显示原始模型文本。
+- 严格 JSON 失败可做一次受控格式修复；连接失败、429 和临时服务错误可有限重试。
 
 ## 联机边界
 
