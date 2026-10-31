@@ -4,7 +4,7 @@
 
 **作者与版权人：xunyv**  
 
-0.4.4 保留 0.4.3 的 Claim 级语义审查、`ClientRequestId` 幂等、每 NPC Provider、格式修复与有限重试、确定性授权兜底和人格热切换，并修复本地语义审查失败路径的重复最终回复。
+0.4.4 包含 Claim 级语义审查、`ClientRequestId` 幂等、每 NPC Provider、格式修复与有限重试、确定性授权兜底和人格热切换，并修复本地语义审查失败路径的重复最终回复。
 
 专用于单机或联机 ARPG 的 Unreal Engine Runtime 插件。0.4.0 增加插件原生的玩家自带密钥（BYOK）AI-NPC 角色扮演入口：玩家可在运行时面板连接兼容 OpenAI Chat Completions 请求与响应格式的服务，每个挂载 `AI NPC Dialogue Component` 的 NPC 自动建立独立本地会话。API Key、Session 状态和最近的已批准对话只在当前游戏进程中使用，不由插件持久化；玩家明确同意后，角色说明、当轮授权事实和玩家当前发言会发送给对话服务，机械校验后的候选文本与允许事实会发送给配置的语义审查服务。自由生成的模型候选必须依次通过严格 JSON、机械事实守卫和语义审查，正式出口只消费 `FinalApprovedText`。
 

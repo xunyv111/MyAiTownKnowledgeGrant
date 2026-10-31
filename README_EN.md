@@ -6,7 +6,7 @@
 
 My AI Town Knowledge Grant is an Unreal Engine Runtime plugin for guarded AI-NPC knowledge in single-player and networked ARPGs. It provides server-authoritative knowledge grants, context-scoped dialogue views, deterministic NPC reactions, strict model-response validation, and a fail-closed semantic review contract.
 
-Version 0.4.4 ships the 0.4.3 feature set (per-claim semantic review, `ClientRequestId` idempotency, per-NPC provider routing, bounded retries, deterministic authorized-fact fallback, and persona hot-swapping) and fixes duplicate completion on the local semantic-review failure path.
+Version 0.4.4 includes per-claim semantic review, `ClientRequestId` idempotency, per-NPC provider routing, bounded retries, deterministic authorized-fact fallback, and persona hot-swapping, and fixes duplicate completion on the local semantic-review failure path.
 
 Version 0.4.0 introduced an optional bring-your-own-key (BYOK) AI-NPC roleplay entry point. A player can connect an OpenAI Chat Completions-compatible service from a runtime settings panel. Each NPC with an `AI NPC Dialogue Component` receives an independent local session. API keys, session state, and recently approved dialogue remain in memory for the current game process and are not persisted by the plugin.
 
