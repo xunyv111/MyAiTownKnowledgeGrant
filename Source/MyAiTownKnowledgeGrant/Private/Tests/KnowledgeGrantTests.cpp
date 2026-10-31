@@ -1414,6 +1414,8 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
     SyncProbe->Coordinator = Coordinator;
     Coordinator->OnSemanticReviewRequested.AddDynamic(
         SyncProbe, &UKnowledgeSemanticReviewSyncProbe::HandleRequest);
+    Coordinator->OnSemanticReviewCompleted.AddDynamic(
+        SyncProbe, &UKnowledgeSemanticReviewSyncProbe::HandleCompleted);
     const FKnowledgeSemanticReviewBeginResult SyncBegin = Coordinator->CreateSemanticReview(
         Player, FreshView, {Collector}, AdviceMechanical, Policy);
     TestTrue(TEXT("Creating a review does not broadcast before correlation"), SyncBegin.bOk);
@@ -1424,8 +1426,28 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("A synchronous host callback can approve the review"), SyncProbe->bApproved);
     TestEqual(TEXT("A synchronous completion consumes the pending request"),
         Coordinator->GetPendingReviewCount(), 0);
+    TestEqual(TEXT("A synchronous completion is broadcast exactly once"),
+        SyncProbe->CompletionCount, 1);
+
+    SyncProbe->CompletionCount = 0;
+    const FKnowledgeSemanticReviewBeginResult FailBegin = Coordinator->CreateSemanticReview(
+        Player, FreshView, {Collector}, AdviceMechanical, Policy);
+    TestTrue(TEXT("A local-failure review can be created"), FailBegin.bOk);
+    const FKnowledgeSemanticReviewResult Failed = Coordinator->FailSemanticReview(
+        FailBegin.Request.RequestId, TEXT("semantic_review_listener_missing"));
+    TestTrue(TEXT("A local failure is reported as an error"),
+        Failed.Outcome == EKnowledgeSemanticReviewOutcome::Error
+        && Failed.Error == TEXT("semantic_review_listener_missing")
+        && Failed.FinalApprovedText == Policy->ErrorText.ToString());
+    TestEqual(TEXT("A local failure broadcasts exactly one completion"),
+        SyncProbe->CompletionCount, 1);
+    TestEqual(TEXT("A local failure removes the pending review"),
+        Coordinator->GetPendingReviewCount(), 0);
+
     Coordinator->OnSemanticReviewRequested.RemoveDynamic(
         SyncProbe, &UKnowledgeSemanticReviewSyncProbe::HandleRequest);
+    Coordinator->OnSemanticReviewCompleted.RemoveDynamic(
+        SyncProbe, &UKnowledgeSemanticReviewSyncProbe::HandleCompleted);
     return true;
 }
 

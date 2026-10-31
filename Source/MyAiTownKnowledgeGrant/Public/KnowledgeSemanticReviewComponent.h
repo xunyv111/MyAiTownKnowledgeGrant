@@ -262,6 +262,14 @@ public:
     FKnowledgeSemanticReviewResult CompleteSemanticReview(
         const FKnowledgeSemanticReviewResponse& Response);
 
+    /**
+     * Atomically removes one pending review and broadcasts one Error completion.
+     * Use for local failures such as a missing listener or unavailable built-in provider.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Knowledge|Semantic Review")
+    FKnowledgeSemanticReviewResult FailSemanticReview(
+        const FString& RequestId, const FString& Error);
+
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Knowledge|Semantic Review")
     void CancelAllPendingReviews();
 

@@ -68,7 +68,7 @@
 
 ### 3.1 环境要求
 
-- Unreal Engine 5.8；仓库中的 0.4.3 已在 UE 5.8.4 / Win64 验证。
+- Unreal Engine 5.8；仓库中的 0.4.4 已在 UE 5.8.4 / Win64 验证。
 - Windows 源码编译需要 Visual Studio 2022、Desktop development with C++ 工作负载，以及与 UE 对应的 Windows SDK。
 - 纯 Blueprint 项目第一次加载源码插件时仍可能要求本机具备 C++ 编译工具链。
 

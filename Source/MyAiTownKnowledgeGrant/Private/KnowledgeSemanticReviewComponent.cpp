@@ -374,6 +374,29 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::CompleteSemant
     return Result;
 }
 
+FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::FailSemanticReview(
+    const FString& RequestId, const FString& Error)
+{
+    if (!HasAuthorityForMutation())
+    {
+        return TerminalFailure(RequestId, TEXT("authority_required"), nullptr,
+            EKnowledgeSemanticReviewOutcome::Invalid);
+    }
+
+    FPendingReview Pending;
+    if (!PendingReviews.RemoveAndCopyValue(RequestId, Pending))
+    {
+        return TerminalFailure(RequestId, TEXT("semantic_review_request_unknown"), nullptr,
+            EKnowledgeSemanticReviewOutcome::Invalid);
+    }
+
+    const FKnowledgeSemanticReviewResult Result = TerminalFailure(
+        RequestId, Error.IsEmpty() ? TEXT("semantic_review_failed") : Error,
+        Pending.Policy.Get(), EKnowledgeSemanticReviewOutcome::Error);
+    OnSemanticReviewCompleted.Broadcast(Result);
+    return Result;
+}
+
 void UKnowledgeSemanticReviewComponent::CancelAllPendingReviews()
 {
     if (!HasAuthorityForMutation()) return;

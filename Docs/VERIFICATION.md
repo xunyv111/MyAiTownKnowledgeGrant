@@ -1,6 +1,6 @@
 # Verification Summary
 
-This file is the public, machine-independent summary of the 0.4.3 validation. Raw automation reports and logs are not distributed in this repository because they contain machine paths and host metadata. The publisher retains the local evidence bundle separately.
+This file is the public, machine-independent summary of the 0.4.4 validation. Raw automation reports and logs are not distributed in this repository because they contain machine paths and host metadata. The publisher retains the local evidence bundle separately.
 
 ## Build
 

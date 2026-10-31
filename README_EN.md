@@ -6,7 +6,7 @@
 
 My AI Town Knowledge Grant is an Unreal Engine Runtime plugin for guarded AI-NPC knowledge in single-player and networked ARPGs. It provides server-authoritative knowledge grants, context-scoped dialogue views, deterministic NPC reactions, strict model-response validation, and a fail-closed semantic review contract.
 
-Version 0.4.3 adds per-claim semantic review, `ClientRequestId` idempotency, per-NPC provider routing, JSON format repair with bounded retries, deterministic authorized-fact fallback, and persona hot-swapping on top of the 0.4.2 baseline.
+Version 0.4.4 ships the 0.4.3 feature set (per-claim semantic review, `ClientRequestId` idempotency, per-NPC provider routing, bounded retries, deterministic authorized-fact fallback, and persona hot-swapping) and fixes duplicate completion on the local semantic-review failure path.
 
 Version 0.4.0 introduced an optional bring-your-own-key (BYOK) AI-NPC roleplay entry point. A player can connect an OpenAI Chat Completions-compatible service from a runtime settings panel. Each NPC with an `AI NPC Dialogue Component` receives an independent local session. API keys, session state, and recently approved dialogue remain in memory for the current game process and are not persisted by the plugin.
 
@@ -157,7 +157,7 @@ Run the following tests in Unreal Automation:
 - `MyAiTown.KnowledgeGrant.Reaction.PersonalityAndAffect`
 - `MyAiTown.KnowledgeGrant.Reaction.DelayedReceipt`
 
-Version 0.4.3 passed UnrealHeaderTool, Editor Development, Game Development, Game Shipping, and 20 of 20 plugin automation tests with 0 warnings and 0 failures on Unreal Engine 5.8.4 / Win64. See [Docs/VERIFICATION.md](Docs/VERIFICATION.md) for the public machine-independent evidence summary.
+Version 0.4.4 passed UnrealHeaderTool, Editor Development, Game Development, Game Shipping, and 20 of 20 plugin automation tests with 0 warnings and 0 failures on Unreal Engine 5.8.4 / Win64. See [Docs/VERIFICATION.md](Docs/VERIFICATION.md) for the public machine-independent evidence summary.
 
 Without the Unreal toolchain, `node Scripts/validate-plugin.mjs` performs structural and boundary checks. It does not replace UnrealHeaderTool, C++ compilation, Automation Test, Cook, Package, or multiplayer testing.
 

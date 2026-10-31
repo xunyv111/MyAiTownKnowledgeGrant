@@ -507,9 +507,27 @@ void UAiNpcDialogueComponent::HandleProviderCompleted(FAiNpcProviderResult Resul
         return;
     }
 
+    const auto FailSemanticReviewLocally = [&](const FString& ErrorCode)
+    {
+        const FKnowledgeSemanticReviewResult Failure =
+            SemanticReviewComponent->FailSemanticReview(Begin.Request.RequestId, ErrorCode);
+        if (Failure.Outcome == EKnowledgeSemanticReviewOutcome::Invalid)
+        {
+            // The pending review was already gone; clean the dialogue-side correlation and reply once.
+            SemanticToProviderRequest.Remove(Begin.Request.RequestId);
+            const FPendingTurn StableTurn = *Turn;
+            PendingTurns.Remove(OriginalRequestId);
+            BroadcastFallback(OriginalRequestId, ErrorCode,
+                SemanticReviewPolicy->ErrorText, &StableTurn);
+        }
+    };
+
     // Correlate before dispatch. A host may complete the review synchronously from the event.
     if (!CorrelateSemanticRequest(Begin.Request.RequestId, OriginalRequestId))
     {
+        // No mapping exists here, so the completion handler cannot perform cleanup for us.
+        SemanticReviewComponent->FailSemanticReview(
+            Begin.Request.RequestId, TEXT("semantic_request_correlation_failed"));
         const FPendingTurn StableTurn = *Turn;
         PendingTurns.Remove(OriginalRequestId);
         BroadcastFallback(OriginalRequestId, TEXT("semantic_request_correlation_failed"),
@@ -518,10 +536,7 @@ void UAiNpcDialogueComponent::HandleProviderCompleted(FAiNpcProviderResult Resul
     }
     if (!SemanticReviewComponent->DispatchSemanticReviewRequest(Begin.Request.RequestId))
     {
-        const FPendingTurn StableTurn = *Turn;
-        PendingTurns.Remove(OriginalRequestId);
-        BroadcastFallback(OriginalRequestId, TEXT("semantic_review_dispatch_failed"),
-            SemanticReviewPolicy->ErrorText, &StableTurn);
+        FailSemanticReviewLocally(TEXT("semantic_review_dispatch_failed"));
         return;
     }
 
@@ -532,22 +547,15 @@ void UAiNpcDialogueComponent::HandleProviderCompleted(FAiNpcProviderResult Resul
     if (SemanticReviewComponent->OnSemanticReviewRequested.IsBound()) return;
     if (!bUseBuiltInSemanticReviewProvider)
     {
-        const FPendingTurn StableTurn = *Turn;
-        PendingTurns.Remove(OriginalRequestId);
-        BroadcastFallback(OriginalRequestId, TEXT("semantic_review_listener_missing"),
-            SemanticReviewPolicy->ErrorText, &StableTurn);
+        FailSemanticReviewLocally(TEXT("semantic_review_listener_missing"));
         return;
     }
     FString Error;
     UAiNpcProviderSubsystem* Provider = GetProviderSubsystem();
     if (!Provider || !Provider->RequestSemanticReview(Begin.Request, Error))
     {
-        FKnowledgeSemanticReviewResponse Failure;
-        Failure.RequestId = Begin.Request.RequestId;
-        Failure.ReviewerName = TEXT("local-provider-gateway");
-        Failure.ReviewerVersion = TEXT("unavailable");
-        Failure.Error = Error.IsEmpty() ? TEXT("review_provider_not_available") : Error;
-        SemanticReviewComponent->CompleteSemanticReview(Failure);
+        FailSemanticReviewLocally(Error.IsEmpty()
+            ? TEXT("review_provider_not_available") : Error);
     }
 }
 
@@ -579,11 +587,15 @@ void UAiNpcDialogueComponent::HandleSemanticReviewCompleted(FKnowledgeSemanticRe
     Reply.bApproved = Result.bApproved;
     Reply.bUsedTrustedFallback = !Result.bApproved;
     Reply.RequestId = RequestId;
+    const bool bErrorOutcome = Result.Outcome == EKnowledgeSemanticReviewOutcome::Error
+        || Result.Outcome == EKnowledgeSemanticReviewOutcome::Invalid;
+    const FText FallbackText = bErrorOutcome
+        ? (SemanticReviewPolicy ? SemanticReviewPolicy->ErrorText : FText::GetEmpty())
+        : (SemanticReviewPolicy ? SemanticReviewPolicy->BlockedText : FText::GetEmpty());
     Reply.FinalApprovedText = Result.bApproved
         ? Result.FinalApprovedText
         : BuildDeterministicAuthorizedFallback(
-            Turn, SemanticReviewPolicy ? SemanticReviewPolicy->BlockedText : FText::GetEmpty(),
-            Reply.FallbackEvidenceFactIds);
+            Turn, FallbackText, Reply.FallbackEvidenceFactIds);
     Reply.RejectedCandidateText = Result.RejectedCandidateText;
     Reply.SemanticClaimAssessments = Result.ClaimAssessments;
     Reply.SemanticReviewedClaims = Result.ReviewedClaims;

@@ -36,9 +36,12 @@ class UKnowledgeSemanticReviewSyncProbe final : public UObject
 public:
     UPROPERTY() TObjectPtr<UKnowledgeSemanticReviewComponent> Coordinator;
     int32 RequestCount = 0;
+    int32 CompletionCount = 0;
     bool bApproved = false;
+    FKnowledgeSemanticReviewResult LastResult;
 
     UFUNCTION() void HandleRequest(FKnowledgeSemanticReviewRequest Request);
+    UFUNCTION() void HandleCompleted(FKnowledgeSemanticReviewResult Result);
 };
 
 #endif // WITH_EDITORONLY_DATA

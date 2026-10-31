@@ -1,7 +1,7 @@
 ---
 handoff_schema: tavernweave/next/v1
 project_id: ai-npc-knowledge-grant
-status: 0.4.3-release-candidate
+status: 0.4.4-release-candidate
 updated: 2026-10-31
 ---
 
@@ -10,17 +10,24 @@ updated: 2026-10-31
 ## 当前权威
 
 - 产品边界：仅面向 Unreal Engine 单机/联机 ARPG。
-- 当前版本：`0.4.3`，UE 5.8 / Win64。
+- 当前版本：`0.4.4`，UE 5.8 / Win64。
 - 总设计案：`总设计案.md`
 - 活动蓝图：`蓝图集/BP-04-简易AI小镇演示.md`
 - 执行期持久权威蓝图预算：`0`
 - 冻结概念：知识授权属于“当前玩家 × 当前语境”；NPC Receiver 只保存人格反应，不是第三个授权集合。
 
+## 0.4.4 修复
+
+- 新增 `FailSemanticReview`：本地失败时原子移除 pending review，并只广播一次 Error completion。
+- 监听器缺失、dispatch/correlation 失败和内置 Provider 不可用统一走失败入口，不再残留 `SemanticToProviderRequest` 或 pending review。
+- `Error` 使用 `ErrorText`，审查拒绝使用 `BlockedText`。
+- 保留 0.4.3 标签和 Release，不移动已发布版本。
+
 ## 0.4.3 已实现
 
 - Claim 级语义审查：逐条判断事实/非事实、支持度、矛盾、越权、任务泄露、角色契合、置信度和 EvidenceFactIds。
 - 审查器证据必须绑定到源 Claim；缺失 Claim、重复 Claim、证据不匹配和分数越界全部失败关闭。
-- 对话请求 `ClientRequestId` 幂等、输入哈希、授权 epoch/作用域指纹校验、pending 查询和完成结果回放。
+- 对话请求 `ClientRequestId` 幂等、规范化输入、授权 epoch/作用域指纹校验、pending 查询和完成结果回放。
 - 每个 NPC 可通过 `ProviderProfileId` 使用独立模型、地址和凭据。
 - 严格 JSON 一次格式修复，以及连接失败、429 和临时服务错误的有限重试。
 - 确定性授权事实兜底、受约束的非事实角色扮演和人格热切换。

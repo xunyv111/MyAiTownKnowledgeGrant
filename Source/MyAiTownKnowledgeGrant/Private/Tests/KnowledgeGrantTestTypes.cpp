@@ -60,4 +60,10 @@ void UKnowledgeSemanticReviewSyncProbe::HandleRequest(FKnowledgeSemanticReviewRe
     bApproved = Coordinator->CompleteSemanticReview(Response).bApproved;
 }
 
+void UKnowledgeSemanticReviewSyncProbe::HandleCompleted(FKnowledgeSemanticReviewResult Result)
+{
+    ++CompletionCount;
+    LastResult = MoveTemp(Result);
+}
+
 #endif // WITH_EDITORONLY_DATA

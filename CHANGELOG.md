@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.4 - 2026-10-31
+
+- 修复本地语义审查失败路径的重复最终回复：新增 `FailSemanticReview`，原子移除 pending review 并广播一次 Error completion。
+- 监听器缺失、dispatch/correlation 失败和内置 Provider 不可用统一走本地失败入口，不再绕过 pending 清理。
+- `Error` 与 `Blocked` 分流：错误场景使用 `ErrorText`，审查拒绝使用 `BlockedText`。
+- 新增本地失败清理与同步 completion 回归断言；保持 20 组 Automation。
+
 ## 0.4.3 - 2026-10-31
 
 - 新增 Claim 级语义审查：逐条判断事实/非事实、支持度、矛盾、越权、任务泄露、角色契合、置信度和 EvidenceFactIds，并保留最差 Claim 诊断。
