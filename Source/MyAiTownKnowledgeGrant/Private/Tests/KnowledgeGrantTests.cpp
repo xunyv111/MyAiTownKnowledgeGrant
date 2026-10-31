@@ -1799,6 +1799,22 @@ bool FKnowledgeRequestIdempotencyTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Pending duplicate status is explicit"),
         Error, FString(TEXT("request_duplicate_pending")));
 
+    int32 RepeatedPendingHits = 0;
+    for (int32 Index = 0; Index < 100; ++Index)
+    {
+        FGuid RepeatedRequestId;
+        FString RepeatedError;
+        if (Dialogue->TryResolveExistingClientRequest(
+                ClientRequestId, TEXT("input-hash"), View, RepeatedRequestId, RepeatedError)
+            && RepeatedRequestId == ProviderRequestId
+            && RepeatedError == TEXT("request_duplicate_pending"))
+        {
+            ++RepeatedPendingHits;
+        }
+    }
+    TestEqual(TEXT("100 repeated pending submissions resolve to one provider request"),
+        RepeatedPendingHits, 100);
+
     Dialogue->ClientRequests[ClientRequestId].bCompleted = true;
     TestTrue(TEXT("A repeated completed request is served from the request record"),
         Dialogue->TryResolveExistingClientRequest(
