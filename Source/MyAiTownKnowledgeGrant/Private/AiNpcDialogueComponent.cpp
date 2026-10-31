@@ -51,7 +51,12 @@ void UAiNpcDialogueComponent::BeginPlay()
 
 void UAiNpcDialogueComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    if (UAiNpcProviderSubsystem* Provider = GetProviderSubsystem())
+    UAiNpcProviderSubsystem* Provider = GetProviderSubsystem();
+    TArray<FString> ReviewIds;
+    for (const TPair<FString, FGuid>& Pair : SemanticToProviderRequest)
+        ReviewIds.Add(Pair.Key);
+
+    if (Provider)
     {
         Provider->OnDialogueProviderCompleted.RemoveDynamic(this, &UAiNpcDialogueComponent::HandleProviderCompleted);
         Provider->OnReviewProviderCompleted.RemoveDynamic(this, &UAiNpcDialogueComponent::HandleReviewProviderCompleted);
@@ -61,6 +66,13 @@ void UAiNpcDialogueComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
     {
         SemanticReviewComponent->OnSemanticReviewCompleted.RemoveDynamic(
             this, &UAiNpcDialogueComponent::HandleSemanticReviewCompleted);
+        for (const FString& ReviewId : ReviewIds)
+            SemanticReviewComponent->CancelSemanticReview(ReviewId);
+    }
+    if (Provider)
+    {
+        for (const FString& ReviewId : ReviewIds)
+            Provider->CancelSemanticReviewRequest(ReviewId);
     }
     PendingTurns.Reset();
     ClientRequests.Reset();

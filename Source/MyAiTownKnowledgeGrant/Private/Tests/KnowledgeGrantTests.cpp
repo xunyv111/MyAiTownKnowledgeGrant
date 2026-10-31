@@ -395,6 +395,16 @@ bool FKnowledgeDialogueGuardTest::RunTest(const FString& Parameters)
         AllowedRoleplay.bOk && !AllowedRoleplay.bBlocked
         && AllowedRoleplay.SafeText == Roleplay.Text);
 
+    FKnowledgeDialogueClaim LongRoleplay = Roleplay;
+    LongRoleplay.ClaimId = TEXT("claim.roleplay.too_long");
+    LongRoleplay.Text = FString::ChrN(600, TEXT('a'));
+    const FKnowledgeDialogueGuardResult LongRoleplayBlocked =
+        UKnowledgeDialogueGuardLibrary::GuardDialogueKnowledgeView(
+            Player, SealView, FGameplayTagContainer(), {LongRoleplay}, RoleplayPolicy);
+    TestTrue(TEXT("Uncited roleplay has an independent length limit"),
+        LongRoleplayBlocked.bBlocked
+        && LongRoleplayBlocked.Error == TEXT("dialogue_claim_uncited_roleplay_too_long"));
+
     FKnowledgeDialogueClaim NoisyRoleplayMetadata = Roleplay;
     NoisyRoleplayMetadata.ClaimId = TEXT("claim.roleplay.noisy_metadata");
     NoisyRoleplayMetadata.ClaimedEntities = {TEXT("周围")};
@@ -1462,6 +1472,20 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("A local failure broadcasts exactly one completion"),
         SyncProbe->CompletionCount, 1);
     TestEqual(TEXT("A local failure removes the pending review"),
+        Coordinator->GetPendingReviewCount(), 0);
+
+    SyncProbe->CompletionCount = 0;
+    const FKnowledgeSemanticReviewBeginResult CancelBegin = Coordinator->CreateSemanticReview(
+        Player, FreshView, {Collector}, AdviceMechanical, Policy);
+    TestTrue(TEXT("A cancellable review can be created"), CancelBegin.bOk);
+    const FKnowledgeSemanticReviewResult Cancelled = Coordinator->CancelSemanticReview(
+        CancelBegin.Request.RequestId);
+    TestTrue(TEXT("Single-review cancellation is explicit and fails closed"),
+        Cancelled.Outcome == EKnowledgeSemanticReviewOutcome::Error
+        && Cancelled.Error == TEXT("semantic_review_cancelled"));
+    TestEqual(TEXT("Single-review cancellation broadcasts once"),
+        SyncProbe->CompletionCount, 1);
+    TestEqual(TEXT("Single-review cancellation removes only its pending review"),
         Coordinator->GetPendingReviewCount(), 0);
 
     Coordinator->OnSemanticReviewRequested.RemoveDynamic(

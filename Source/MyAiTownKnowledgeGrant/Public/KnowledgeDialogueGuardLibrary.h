@@ -51,6 +51,13 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Roleplay")
     bool bAllowUncitedRoleplay = false;
 
+    /** Independent hard limits for uncited roleplay; factual claims use the model-adapter limits. */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Roleplay", meta = (ClampMin = "1", ClampMax = "2048"))
+    int32 MaxUncitedRoleplayCharacters = 512;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Roleplay", meta = (ClampMin = "1", ClampMax = "16"))
+    int32 MaxUncitedRoleplayClaims = 4;
+
     /** Host-authored vocabulary used to catch protected proper nouns omitted from claim metadata. */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Knowledge|Fact Guard")
     TArray<FString> ProtectedEntityLexicon;

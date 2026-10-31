@@ -57,6 +57,10 @@ public:
     UFUNCTION(BlueprintCallable, Category="AI NPC|Semantic Review")
     bool RequestSemanticReview(const FKnowledgeSemanticReviewRequest& ReviewRequest, FString& OutError);
 
+    /** Cancels one in-flight semantic-review HTTP request. */
+    UFUNCTION(BlueprintCallable, Category="AI NPC|Semantic Review")
+    void CancelSemanticReviewRequest(const FString& RequestId);
+
     UFUNCTION(BlueprintPure, Category="AI NPC|Privacy")
     static bool ValidateConfiguration(const FAiNpcProviderConfiguration& Configuration, FString& OutError);
 

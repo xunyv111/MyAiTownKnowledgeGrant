@@ -270,6 +270,10 @@ public:
     FKnowledgeSemanticReviewResult FailSemanticReview(
         const FString& RequestId, const FString& Error);
 
+    /** Cancels one pending review without affecting other NPCs sharing this component. */
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Knowledge|Semantic Review")
+    FKnowledgeSemanticReviewResult CancelSemanticReview(const FString& RequestId);
+
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Knowledge|Semantic Review")
     void CancelAllPendingReviews();
 

@@ -22,6 +22,8 @@
 
 每次审查请求固定创建时的 Provider 配置、模型和 Generation。Provider 被重新配置后，旧回调不会重试到新 Provider；Generation 不匹配的结果失败关闭。清除审查凭据会取消本地 HTTP 请求，但无法收回已经发送到远程服务的数据。重试只使用原 Provider 快照。
 
+单个 NPC 销毁时使用 `CancelSemanticReview(RequestId)` 和 `CancelSemanticReviewRequest(RequestId)` 只清理自己的审查；不要调用 `CancelAllPendingReviews`，否则会误伤共享组件上的其他 NPC。
+
 ## 请求合同
 
 `FKnowledgeSemanticReviewRequest` 包含：

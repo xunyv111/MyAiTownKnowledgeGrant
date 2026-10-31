@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.6 - 2026-10-31
+
+- 新增 `CancelSemanticReview(RequestId)` 与 `CancelSemanticReviewRequest(RequestId)`：NPC 销毁时只取消自己的审查请求，不误伤共享组件上的其他 NPC。
+- 新增 Uncited Roleplay 独立限制：`MaxUncitedRoleplayCharacters` 和 `MaxUncitedRoleplayClaims`，超出时本地失败关闭。
+- 新增 `Docs/HOST_OUTPUT_CONTRACT.md`：明确 `RawProviderPayload` 不得进入正式 UI，正式出口只允许 `FinalApprovedText`。
+- 增加取消单次审查和 Uncited Roleplay 超长文本断言；Automation 保持 20 组。
+
 ## 0.4.5 - 2026-10-31
 
 - 修复语义审查 Policy 弱引用失效风险：pending review 在完成前持有强引用，Policy 失效时失败关闭。

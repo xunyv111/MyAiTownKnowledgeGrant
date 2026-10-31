@@ -922,6 +922,13 @@ bool UAiNpcProviderSubsystem::RequestSemanticReview(
     return true;
 }
 
+void UAiNpcProviderSubsystem::CancelSemanticReviewRequest(const FString& RequestId)
+{
+    FPendingReviewRequest Pending;
+    if (!PendingReviews.RemoveAndCopyValue(RequestId, Pending)) return;
+    if (Pending.HttpRequest.IsValid()) Pending.HttpRequest->CancelRequest();
+}
+
 void UAiNpcProviderSubsystem::HandleReviewHttpComplete(
     TSharedPtr<IHttpRequest> Request, TSharedPtr<IHttpResponse> Response,
     bool bConnectedSuccessfully, FString ReviewRequestId)

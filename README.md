@@ -4,7 +4,7 @@
 
 **作者与版权人：xunyv**  
 
-0.4.5 包含 Claim 级语义审查、`ClientRequestId` 幂等、每 NPC Provider、格式修复与有限重试、确定性授权兜底和人格热切换；同时修复本地语义审查失败路径的重复最终回复，并加固 Policy 生命周期、Provider Generation 和撤销后的 GrantEventId 重放边界。
+0.4.6 包含 Claim 级语义审查、`ClientRequestId` 幂等、每 NPC Provider、格式修复与有限重试、确定性授权兜底和人格热切换；同时修复本地语义审查失败路径的重复最终回复，并加固 Policy 生命周期、Provider Generation 和撤销后的 GrantEventId 重放边界。
 
 专用于单机或联机 ARPG 的 Unreal Engine Runtime 插件。0.4.0 增加插件原生的玩家自带密钥（BYOK）AI-NPC 角色扮演入口：玩家可在运行时面板连接兼容 OpenAI Chat Completions 请求与响应格式的服务，每个挂载 `AI NPC Dialogue Component` 的 NPC 自动建立独立本地会话。API Key、Session 状态和最近的已批准对话只在当前游戏进程中使用，不由插件持久化；玩家明确同意后，角色说明、当轮授权事实和玩家当前发言会发送给对话服务，机械校验后的候选文本与允许事实会发送给配置的语义审查服务。自由生成的模型候选必须依次通过严格 JSON、机械事实守卫和语义审查，正式出口只消费 `FinalApprovedText`。
 
@@ -249,7 +249,7 @@ flowchart TD
 
 将 `MyAiTownKnowledgeGrant` 整个目录复制到 Unreal 项目的 `Plugins/` 下，重新生成项目文件并编译。插件只使用 UE 内置的 GameplayTags、HTTP、JSON、UMG 和 Slate 模块，不依赖第三方模型 SDK 或数据库。
 
-`0.4.5` 源码已通过 UE 5.8.4 / Win64 隔离 BuildPlugin 验证及插件 Automation 20/20；二进制包以正式发布资产为准。安装、宿主发布前检查与已知边界见 [INSTALL.md](INSTALL.md)，官方构建清单见 [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)。其他引擎版本或平台应使用源码重新编译。
+`0.4.6` 源码已通过 UE 5.8.4 / Win64 隔离 BuildPlugin 验证及插件 Automation 20/20；二进制包以正式发布资产为准。安装、宿主发布前检查与已知边界见 [INSTALL.md](INSTALL.md)，官方构建清单见 [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)。其他引擎版本或平台应使用源码重新编译。
 
 单机 ARPG 推荐把 `Knowledge Grant Component` 挂在跨关卡可恢复的玩家 Actor 或 PlayerState 上；联机 ARPG 推荐挂在服务器权威且可复制的 PlayerState 上。不要挂在每个 NPC 上。
 
@@ -274,7 +274,7 @@ flowchart TD
 5. 只在 Authority 侧把视图中的 `Allowed Documents` 交给后续提示词或 RAG 层。结果为空时不添加任何知识提示；非 Authority 客户端调用会得到 `authority_required`。
 6. 每个 `Knowledge Document` 至少配置一个原子 `Knowledge Fact`，包含稳定 `Fact Id`、事实陈述、规范专名、规范数字和否定状态。模型必须输出下文定义的严格 JSON；把原始 JSON、同一个知识视图、实际 `Knowledge Context Collector` 组件和可信策略交给 `Guard Knowledge Model Json Response For Collectors`。该节点在内部读取当轮实时 Tags、完成解析与证据引用/元数据一致性检查，不向蓝图暴露未校验 claims。只有需要自定义语境来源时才使用带显式 `Current Active Context Tags` 的底层入口。
 7. 对自由生成台词启用 `Knowledge Semantic Review Component`：先调用 `Create Semantic Review` 创建请求，建立审查 RequestId 与对话请求的关联，再调用 `Dispatch Semantic Review Request` 广播。内置 AI-NPC 路径在无宿主监听时自动转交已配置的审查 Provider；自定义接入则由宿主监听请求并调用自己的云 API、本地模型或语义服务，再把逐 Claim 的 `claimAssessments` 交回 `Complete Semantic Review`。宿主监听器与内置 Provider 只能有一个发送方；组件会在异步返回后重新验证授权和实时语境。
-8. 启用语义审查时，字幕、语音、行为系统和正式日志只能消费 `FinalApprovedText`；`SafeText` 只是机械校验中间结果。审查超时、错误、覆盖不完整或视图过期全部失败关闭。接口合同见 [Docs/SEMANTIC_REVIEW_API.md](Docs/SEMANTIC_REVIEW_API.md)。
+8. 启用语义审查时，字幕、语音、行为系统和正式日志只能消费 `FinalApprovedText`；`SafeText` 只是机械校验中间结果。审查超时、错误、覆盖不完整或视图过期全部失败关闭。接口合同见 [Docs/SEMANTIC_REVIEW_API.md](Docs/SEMANTIC_REVIEW_API.md)，宿主唯一输出接线见 [Docs/HOST_OUTPUT_CONTRACT.md](Docs/HOST_OUTPUT_CONTRACT.md)。
 
 `FDialogueKnowledgeView` 是一次对话的唯一知识快照，包含语境标记、玩家授权修订号、授权世代、允许文档、排除原因和 CRC32 一致性校验值。输出门会把视图语境与调用方提供的当轮实时 Tags 做精确比较，并重新核对当前授权 Revision 与 `AuthorizationEpoch`。切场景、恢复/替换授权状态或改写视图后，分别以 `dialogue_view_context_changed`、`dialogue_view_stale` / `dialogue_view_authorization_changed`、`dialogue_view_tampered` 失败关闭。CRC32 只发现意外改写，不是密码学签名。
 
@@ -374,7 +374,7 @@ flowchart TD
 - `MyAiTown.KnowledgeGrant.Reaction.DelayedReceipt`
 - `KnowledgeGrantHost.Network.FKnowledgeAuthorityIsolationNetworkTest.AuthorityAndPlayerIsolation`（宿主 Editor 专用）
 
-自动化测试覆盖：公共任务常识可用但未来细节不可用、后续骨牌乱序拒绝、每次事件只新增当前事实、任务包兼容、事件幂等、事件 ID 换包冲突、注册表一致的快照恢复、跨版本/伪造/缺前置/循环/缺事件历史快照拒绝、无效但未授权注册包不阻塞恢复、语境隔离与 Collector 取实时 Tags、空证据拦截、整段/逐条策略、陈旧/篡改视图拒绝、错专名、漏报受保护专名、错数字、正负号与小数、中文书写数字、反转否定、畸形/越界模型 JSON、撤销依赖保护、撤销后旧 GrantEventId 重放保护、可选历史上限，以及同一事实结合不同人格形成不同反应。Receiver 测试证明共享 NPC 可分别记录玩家 A/B 的同名事件、单个玩家内部仍幂等、非 Authority 拒绝、受众/事件 ID 规范化、事件换包冲突、伪造越界反应拒绝和可选 receipt 上限。宿主演示还验证清空后 HUD 不保留旧反应、恢复后从 Receiver 快照重建可见反应。宿主网络测试另以专用服务器和两个真实 PIE 客户端验证：玩家 A 的授权复制后不会出现在玩家 B，客户端直接授予与恢复均返回 `authority_required` 且不改变修订号。
+自动化测试覆盖：公共任务常识可用但未来细节不可用、后续骨牌乱序拒绝、每次事件只新增当前事实、任务包兼容、事件幂等、事件 ID 换包冲突、注册表一致的快照恢复、跨版本/伪造/缺前置/循环/缺事件历史快照拒绝、无效但未授权注册包不阻塞恢复、语境隔离与 Collector 取实时 Tags、空证据拦截、整段/逐条策略、陈旧/篡改视图拒绝、错专名、漏报受保护专名、错数字、正负号与小数、中文书写数字、反转否定、畸形/越界模型 JSON、撤销依赖保护、撤销后旧 GrantEventId 重放保护、单请求审查取消、Uncited Roleplay 长度/数量上限、可选历史上限，以及同一事实结合不同人格形成不同反应。Receiver 测试证明共享 NPC 可分别记录玩家 A/B 的同名事件、单个玩家内部仍幂等、非 Authority 拒绝、受众/事件 ID 规范化、事件换包冲突、伪造越界反应拒绝和可选 receipt 上限。宿主演示还验证清空后 HUD 不保留旧反应、恢复后从 Receiver 快照重建可见反应。宿主网络测试另以专用服务器和两个真实 PIE 客户端验证：玩家 A 的授权复制后不会出现在玩家 B，客户端直接授予与恢复均返回 `authority_required` 且不改变修订号。
 
 本插件已在 Unreal Engine 5.8.4 完成隔离 BuildPlugin：UHT、Editor Development、Game Development 与 Game Shipping 均通过。最终构建包在 UE 5.8.4 临时宿主中完成插件 Automation 20/20，0 警告、0 失败。旧版宿主与联机测试只作为历史集成基线，不冒充本轮 UE 5.8 结果；完整边界见 [VALIDATION.md](VALIDATION.md)。
 

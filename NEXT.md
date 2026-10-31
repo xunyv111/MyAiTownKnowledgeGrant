@@ -1,7 +1,7 @@
 ---
 handoff_schema: tavernweave/next/v1
 project_id: ai-npc-knowledge-grant
-status: 0.4.5-release-candidate
+status: 0.4.6-release-candidate
 updated: 2026-10-31
 ---
 
@@ -10,11 +10,18 @@ updated: 2026-10-31
 ## 当前权威
 
 - 产品边界：仅面向 Unreal Engine 单机/联机 ARPG。
-- 当前版本：`0.4.5`，UE 5.8 / Win64。
+- 当前版本：`0.4.6`，UE 5.8 / Win64。
 - 总设计案：`总设计案.md`
 - 活动蓝图：`蓝图集/BP-04-简易AI小镇演示.md`
 - 执行期持久权威蓝图预算：`0`
 - 冻结概念：知识授权属于“当前玩家 × 当前语境”；NPC Receiver 只保存人格反应，不是第三个授权集合。
+
+## 0.4.6 生命周期与角色扮演边界
+
+- 新增单请求 `CancelSemanticReview` / `CancelSemanticReviewRequest`；NPC 销毁只清理自己的审查，不调用全局取消。
+- Uncited Roleplay 增加独立长度和 Claim 数量上限。
+- 新增宿主唯一输出合同文档，禁止 `RawProviderPayload` 进入正式 UI。
+- 保留 0.4.5 的 Provider Generation、Policy 强引用和 Schema v4。
 
 ## 0.4.5 安全一致性修复
 

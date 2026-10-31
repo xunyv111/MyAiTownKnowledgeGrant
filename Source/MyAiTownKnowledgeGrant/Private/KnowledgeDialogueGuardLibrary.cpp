@@ -323,6 +323,7 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
     FString FirstBlockError;
     TSet<FName> SeenClaimIds;
     TArray<FString> AllowedTexts;
+    int32 UncitedRoleplayCount = 0;
     for (const FKnowledgeDialogueClaim& Claim : Claims)
     {
         TSet<FString> ClaimedEntities;
@@ -338,6 +339,20 @@ FKnowledgeDialogueGuardResult UKnowledgeDialogueGuardLibrary::GuardDialogueKnowl
 
         bool bGrounded = !bMalformed;
         FString ClaimError = bMalformed ? TEXT("dialogue_claim_malformed") : FString();
+        if (bGrounded && bUncitedRoleplay)
+        {
+            ++UncitedRoleplayCount;
+            if (Claim.Text.Len() > FMath::Clamp(Policy->MaxUncitedRoleplayCharacters, 1, 2048))
+            {
+                bGrounded = false;
+                ClaimError = TEXT("dialogue_claim_uncited_roleplay_too_long");
+            }
+            else if (UncitedRoleplayCount > FMath::Clamp(Policy->MaxUncitedRoleplayClaims, 1, 16))
+            {
+                bGrounded = false;
+                ClaimError = TEXT("dialogue_claim_uncited_roleplay_limit_exceeded");
+            }
+        }
         TSet<FName> SeenEvidenceIds;
         TOptional<bool> FactNegated;
         for (const FName EvidenceId : Claim.EvidenceFactIds)
