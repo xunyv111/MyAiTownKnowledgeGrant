@@ -18,6 +18,10 @@
 
 `BeginSemanticReview` 仅作为兼容便捷入口，内部执行 Create + Dispatch；需要自己建立关联的调用方应使用 Create → Correlate → Dispatch。
 
+### Provider 生命周期
+
+每次审查请求固定创建时的 Provider 配置、模型和 Generation。Provider 被重新配置后，旧回调不会重试到新 Provider；Generation 不匹配的结果失败关闭。清除审查凭据会取消本地 HTTP 请求，但无法收回已经发送到远程服务的数据。重试只使用原 Provider 快照。
+
 ## 请求合同
 
 `FKnowledgeSemanticReviewRequest` 包含：

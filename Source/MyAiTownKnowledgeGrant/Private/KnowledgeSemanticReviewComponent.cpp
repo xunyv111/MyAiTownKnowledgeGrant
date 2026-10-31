@@ -150,6 +150,7 @@ FKnowledgeSemanticReviewBeginResult UKnowledgeSemanticReviewComponent::CreateSem
     Pending.ContextCollectors = MoveTemp(WeakCollectors);
     Pending.Policy = const_cast<UKnowledgeSemanticReviewPolicy*>(Policy);
     PendingReviews.Add(Request.RequestId, MoveTemp(Pending));
+    PendingPolicyRefs.Add(Request.RequestId, const_cast<UKnowledgeSemanticReviewPolicy*>(Policy));
 
     Begin.bOk = true;
     Begin.Request = Request;
@@ -212,6 +213,11 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::CompleteSemant
     else if (!Response.Error.IsEmpty())
     {
         Result = TerminalFailure(Response.RequestId, Response.Error, Policy,
+            EKnowledgeSemanticReviewOutcome::Error);
+    }
+    else if (!IsValid(Policy))
+    {
+        Result = TerminalFailure(Response.RequestId, TEXT("semantic_review_policy_unavailable"), nullptr,
             EKnowledgeSemanticReviewOutcome::Error);
     }
     else
@@ -370,6 +376,7 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::CompleteSemant
     }
 #endif
 
+    PendingPolicyRefs.Remove(Response.RequestId);
     OnSemanticReviewCompleted.Broadcast(Result);
     return Result;
 }
@@ -393,6 +400,7 @@ FKnowledgeSemanticReviewResult UKnowledgeSemanticReviewComponent::FailSemanticRe
     const FKnowledgeSemanticReviewResult Result = TerminalFailure(
         RequestId, Error.IsEmpty() ? TEXT("semantic_review_failed") : Error,
         Pending.Policy.Get(), EKnowledgeSemanticReviewOutcome::Error);
+    PendingPolicyRefs.Remove(RequestId);
     OnSemanticReviewCompleted.Broadcast(Result);
     return Result;
 }
@@ -409,6 +417,7 @@ void UKnowledgeSemanticReviewComponent::CancelAllPendingReviews()
             Pending.Request.RequestId, TEXT("semantic_review_cancelled"), Pending.Policy.Get(),
             EKnowledgeSemanticReviewOutcome::Error));
     }
+    PendingPolicyRefs.Reset();
 }
 
 void UKnowledgeSemanticReviewComponent::TickComponent(float DeltaTime, ELevelTick TickType,
@@ -430,6 +439,7 @@ void UKnowledgeSemanticReviewComponent::TickComponent(float DeltaTime, ELevelTic
         OnSemanticReviewCompleted.Broadcast(TerminalFailure(
             RequestId, TEXT("semantic_review_timeout"), Pending.Policy.Get(),
             EKnowledgeSemanticReviewOutcome::Error));
+        PendingPolicyRefs.Remove(RequestId);
     }
 }
 

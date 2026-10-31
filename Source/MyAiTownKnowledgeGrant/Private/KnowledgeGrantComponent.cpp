@@ -72,7 +72,11 @@ FKnowledgeGrantResult UKnowledgeGrantComponent::ApplyGrant(const FString& GrantE
     }
 
     const bool bAccessChanged = !State.GrantedPackIds.Contains(KnowledgePack->PackId);
-    if (bAccessChanged) State.GrantedPackIds.Add(KnowledgePack->PackId);
+    if (bAccessChanged)
+    {
+        State.GrantedPackIds.Add(KnowledgePack->PackId);
+        State.RevokedPackIds.Remove(KnowledgePack->PackId);
+    }
     if (KnowledgePack->UnlockTag.IsValid()) State.GrantedTags.AddTag(KnowledgePack->UnlockTag);
     FKnowledgeGrantRecord Record;
     Record.GrantEventId = GrantEventId;
@@ -150,8 +154,8 @@ FKnowledgeGrantResult UKnowledgeGrantComponent::RevokeKnowledgePack(
     }
 
     State.GrantedPackIds.Remove(PackId);
-    State.ProcessedGrants.RemoveAll(
-        [PackId](const FKnowledgeGrantRecord& Record) { return Record.PackId == PackId; });
+    State.RevokedPackIds.AddUnique(PackId);
+    // Keep ProcessedGrants intact: it is the event ledger used for replay protection.
     State.GrantedTags = MoveTemp(RemainingTags);
     ++State.Revision;
     State.AuthorizationEpoch = FGuid::NewGuid();
@@ -227,7 +231,7 @@ bool UKnowledgeGrantComponent::ValidateSnapshotAgainstRegistry(
     const FKnowledgeGrantSnapshot& Snapshot, const TArray<UKnowledgePack*>& RegisteredPacks,
     FName ExpectedPackRegistryVersion, FKnowledgeGrantState& OutValidatedState, FString& OutError)
 {
-    if (Snapshot.SchemaVersion != 3)
+    if (Snapshot.SchemaVersion != 4)
     {
         OutError = TEXT("snapshot_schema_unsupported");
         return false;
@@ -259,6 +263,19 @@ bool UKnowledgeGrantComponent::ValidateSnapshotAgainstRegistry(
         PackIds.Add(PackId);
     }
 
+    TSet<FName> RevokedIds;
+    for (const FName PackId : Snapshot.State.RevokedPackIds)
+    {
+        if (PackId.IsNone() || RevokedIds.Contains(PackId) || PackIds.Contains(PackId))
+        {
+            OutError = TEXT("snapshot_revoked_pack_ids_invalid");
+            return false;
+        }
+        RevokedIds.Add(PackId);
+    }
+    TSet<FName> KnownPackIds = PackIds;
+    KnownPackIds.Append(RevokedIds);
+
     TSet<FString> GrantIds;
     TSet<FName> PacksWithGrantRecords;
     for (const FKnowledgeGrantRecord& Record : Snapshot.State.ProcessedGrants)
@@ -270,7 +287,7 @@ bool UKnowledgeGrantComponent::ValidateSnapshotAgainstRegistry(
             OutError = TEXT("snapshot_grant_ids_invalid");
             return false;
         }
-        if (!PackIds.Contains(Record.PackId))
+        if (!KnownPackIds.Contains(Record.PackId))
         {
             OutError = TEXT("snapshot_grant_pack_mismatch");
             return false;
@@ -278,10 +295,13 @@ bool UKnowledgeGrantComponent::ValidateSnapshotAgainstRegistry(
         GrantIds.Add(NormalizedGrantId);
         PacksWithGrantRecords.Add(Record.PackId);
     }
-    if (PacksWithGrantRecords.Num() != PackIds.Num())
+    for (const FName PackId : PackIds)
     {
-        OutError = TEXT("snapshot_grant_history_incomplete");
-        return false;
+        if (!PacksWithGrantRecords.Contains(PackId))
+        {
+            OutError = TEXT("snapshot_grant_history_incomplete");
+            return false;
+        }
     }
 
     TMap<FName, const UKnowledgePack*> Registry;

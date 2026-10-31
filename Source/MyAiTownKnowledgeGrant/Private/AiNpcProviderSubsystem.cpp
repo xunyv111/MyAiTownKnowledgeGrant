@@ -228,6 +228,7 @@ bool UAiNpcProviderSubsystem::ConfigureProvider(EAiNpcProviderChannel Channel,
     Runtime.Configuration.ChatCompletionsUrl = TrimmedUrl(Configuration.ChatCompletionsUrl);
     Runtime.ApiKey = TrimmedApiKey;
     Runtime.bConfigured = true;
+    ++Runtime.Generation;
     return true;
 }
 
@@ -253,6 +254,7 @@ bool UAiNpcProviderSubsystem::ConfigureNpcProvider(FName ProviderProfileId,
     Runtime.Configuration.ChatCompletionsUrl = TrimmedUrl(Configuration.ChatCompletionsUrl);
     Runtime.ApiKey = TrimmedApiKey;
     Runtime.bConfigured = true;
+    ++Runtime.Generation;
     return true;
 }
 
@@ -260,12 +262,17 @@ void UAiNpcProviderSubsystem::ClearCredentials()
 {
     DialogueProvider.ApiKey.Reset();
     DialogueProvider.bConfigured = false;
+    ++DialogueProvider.Generation;
     ReviewProvider.ApiKey.Reset();
     ReviewProvider.bConfigured = false;
+    ++ReviewProvider.Generation;
+    CancelPendingReviewRequests();
+    CancelDialogueRequestsForProfile(NAME_None, true);
     for (TPair<FName, FRuntimeProvider>& Pair : NpcDialogueProviders)
     {
         Pair.Value.ApiKey.Reset();
         Pair.Value.bConfigured = false;
+        ++Pair.Value.Generation;
     }
     NpcDialogueProviders.Reset();
 }
@@ -276,6 +283,9 @@ bool UAiNpcProviderSubsystem::ClearProviderCredentials(EAiNpcProviderChannel Cha
     const bool bHadCredentials = Runtime.bConfigured || !Runtime.ApiKey.IsEmpty();
     Runtime.ApiKey.Reset();
     Runtime.bConfigured = false;
+    ++Runtime.Generation;
+    if (Channel == EAiNpcProviderChannel::SemanticReview) CancelPendingReviewRequests();
+    else CancelDialogueRequestsForProfile(NAME_None, false);
     return bHadCredentials;
 }
 
@@ -286,7 +296,33 @@ bool UAiNpcProviderSubsystem::ClearNpcProviderCredentials(FName ProviderProfileI
     if (Runtime == nullptr) return false;
     Runtime->ApiKey.Reset();
     Runtime->bConfigured = false;
+    ++Runtime->Generation;
+    CancelDialogueRequestsForProfile(ProviderProfileId, false);
     return true;
+}
+
+void UAiNpcProviderSubsystem::CancelPendingReviewRequests()
+{
+    for (TPair<FString, FPendingReviewRequest>& Pair : PendingReviews)
+    {
+        if (Pair.Value.HttpRequest.IsValid())
+        {
+            Pair.Value.HttpRequest->CancelRequest();
+        }
+    }
+}
+
+void UAiNpcProviderSubsystem::CancelDialogueRequestsForProfile(
+    FName ProviderProfileId, bool bAllProfiles)
+{
+    for (TPair<FGuid, FNpcSession>& Pair : Sessions)
+    {
+        if (!bAllProfiles && Pair.Value.Persona.ProviderProfileId != ProviderProfileId) continue;
+        for (TPair<FGuid, TSharedPtr<IHttpRequest>>& RequestPair : Pair.Value.PendingHttpRequests)
+        {
+            if (RequestPair.Value.IsValid()) RequestPair.Value->CancelRequest();
+        }
+    }
 }
 
 bool UAiNpcProviderSubsystem::IsNpcProviderReady(FName ProviderProfileId) const
@@ -363,7 +399,14 @@ void UAiNpcProviderSubsystem::CloseNpcSession(FGuid SessionId)
 {
     if (FNpcSession* Session = Sessions.Find(SessionId))
     {
-        for (const FGuid& RequestId : Session->PendingRequests) RequestToSession.Remove(RequestId);
+        for (const FGuid& RequestId : Session->PendingRequests)
+        {
+            RequestToSession.Remove(RequestId);
+            if (TSharedPtr<IHttpRequest>* HttpRequest = Session->PendingHttpRequests.Find(RequestId))
+            {
+                if (HttpRequest->IsValid()) (*HttpRequest)->CancelRequest();
+            }
+        }
     }
     Sessions.Remove(SessionId);
 }
@@ -554,6 +597,8 @@ FGuid UAiNpcProviderSubsystem::DispatchDialogueRequest(FGuid SessionId, const FS
         return FGuid();
     }
     Session->PendingRequests.Add(RequestId);
+    Session->PendingGenerations.Add(RequestId, Provider.Generation);
+    Session->PendingHttpRequests.Add(RequestId, Request);
     RequestToSession.Add(RequestId, SessionId);
     return RequestId;
 }
@@ -567,10 +612,31 @@ void UAiNpcProviderSubsystem::HandleDialogueHttpComplete(
     const FGuid* SessionId = RequestToSession.Find(RequestId);
     if (SessionId == nullptr) return;
     Result.SessionId = *SessionId;
-    if (FNpcSession* Session = Sessions.Find(*SessionId)) Session->PendingRequests.Remove(RequestId);
+    bool bProviderChanged = false;
+    if (FNpcSession* Session = Sessions.Find(*SessionId))
+    {
+        const uint64* PendingGeneration = Session->PendingGenerations.Find(RequestId);
+        const FRuntimeProvider* CurrentProvider = DialogueProviderForSession(*Session);
+        bProviderChanged = PendingGeneration == nullptr || CurrentProvider == nullptr
+            || *PendingGeneration != CurrentProvider->Generation;
+        Session->PendingRequests.Remove(RequestId);
+        Session->PendingGenerations.Remove(RequestId);
+        Session->PendingHttpRequests.Remove(RequestId);
+    }
+    else
+    {
+        bProviderChanged = true;
+    }
     RequestToSession.Remove(RequestId);
 
-    if (!bConnectedSuccessfully || !Response.IsValid()) Result.Error = TEXT("provider_connection_failed");
+    if (bProviderChanged)
+    {
+        Result.Error = TEXT("provider_changed");
+    }
+    else if (!bConnectedSuccessfully || !Response.IsValid())
+    {
+        Result.Error = TEXT("provider_connection_failed");
+    }
     else
     {
         Result.HttpStatus = Response->GetResponseCode();
@@ -832,22 +898,25 @@ bool UAiNpcProviderSubsystem::RequestSemanticReview(
     { OutError = TEXT("review_provider_not_configured"); return false; }
     if (PendingReviews.Contains(ReviewRequest.RequestId))
     { OutError = TEXT("review_request_duplicate"); return false; }
+    const FRuntimeProvider Snapshot = ReviewProvider;
     FString Body;
-    if (!BuildReviewRequestBody(ReviewProvider.Configuration, ReviewRequest, Body, OutError)) return false;
+    if (!BuildReviewRequestBody(Snapshot.Configuration, ReviewRequest, Body, OutError)) return false;
 
     TSharedRef<IHttpRequest> Request = FHttpModule::Get().CreateRequest();
-    Request->SetURL(ReviewProvider.Configuration.ChatCompletionsUrl);
+    Request->SetURL(Snapshot.Configuration.ChatCompletionsUrl);
     Request->SetVerb(TEXT("POST"));
     Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
-    Request->SetHeader(TEXT("Authorization"), TEXT("Bearer ") + ReviewProvider.ApiKey);
+    Request->SetHeader(TEXT("Authorization"), TEXT("Bearer ") + Snapshot.ApiKey);
     Request->SetContentAsString(Body);
-    Request->SetTimeout(ReviewProvider.Configuration.TimeoutSeconds);
+    Request->SetTimeout(Snapshot.Configuration.TimeoutSeconds);
     Request->OnProcessRequestComplete().BindUObject(
         this, &UAiNpcProviderSubsystem::HandleReviewHttpComplete, ReviewRequest.RequestId);
     if (!Request->ProcessRequest())
     { OutError = TEXT("review_request_start_failed"); return false; }
     FPendingReviewRequest Pending;
     Pending.Request = ReviewRequest;
+    Pending.ProviderSnapshot = Snapshot;
+    Pending.HttpRequest = Request;
     Pending.StartedAtSeconds = FPlatformTime::Seconds();
     PendingReviews.Add(ReviewRequest.RequestId, MoveTemp(Pending));
     return true;
@@ -860,33 +929,49 @@ void UAiNpcProviderSubsystem::HandleReviewHttpComplete(
     FPendingReviewRequest* Pending = PendingReviews.Find(ReviewRequestId);
     if (Pending == nullptr) return;
     const FKnowledgeSemanticReviewRequest& Original = Pending->Request;
+    const FRuntimeProvider Snapshot = Pending->ProviderSnapshot;
     FKnowledgeSemanticReviewResponse ReviewResponse;
     ReviewResponse.RequestId = ReviewRequestId;
-    ReviewResponse.ReviewerName = ReviewProvider.Configuration.ProviderName;
-    ReviewResponse.ReviewerVersion = ReviewProvider.Configuration.Model;
+    ReviewResponse.ReviewerName = Snapshot.Configuration.ProviderName;
+    ReviewResponse.ReviewerVersion = Snapshot.Configuration.Model;
     FString Error;
-    if (!bConnectedSuccessfully || !Response.IsValid()) Error = TEXT("review_connection_failed");
+    if (Snapshot.Generation != ReviewProvider.Generation)
+    {
+        Error = TEXT("review_provider_changed");
+    }
+    else if (!bConnectedSuccessfully || !Response.IsValid())
+    {
+        Error = TEXT("review_connection_failed");
+    }
     else if (Response->GetResponseCode() < 200 || Response->GetResponseCode() >= 300)
+    {
         Error = FString::Printf(TEXT("review_http_error_%d"), Response->GetResponseCode());
-    else ParseReviewResponse(Response->GetContentAsString(), Original,
-        ReviewProvider.Configuration, ReviewResponse, Error);
-    if (!Error.IsEmpty() && Pending->RetryCount < 1 && IsRetryableReviewErrorCode(Error))
+    }
+    else
+    {
+        ParseReviewResponse(Response->GetContentAsString(), Original,
+            Snapshot.Configuration, ReviewResponse, Error);
+    }
+
+    if (!Error.IsEmpty() && Pending->RetryCount < 1 && IsRetryableReviewErrorCode(Error)
+        && Snapshot.Generation == ReviewProvider.Generation)
     {
         FString RetryBody;
         FString RetryError;
         if (BuildReviewRequestBody(
-            ReviewProvider.Configuration, Original, RetryBody, RetryError, Error))
+            Snapshot.Configuration, Original, RetryBody, RetryError, Error))
         {
             TSharedRef<IHttpRequest> Retry = FHttpModule::Get().CreateRequest();
-            Retry->SetURL(ReviewProvider.Configuration.ChatCompletionsUrl);
+            Retry->SetURL(Snapshot.Configuration.ChatCompletionsUrl);
             Retry->SetVerb(TEXT("POST"));
             Retry->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
-            Retry->SetHeader(TEXT("Authorization"), TEXT("Bearer ") + ReviewProvider.ApiKey);
+            Retry->SetHeader(TEXT("Authorization"), TEXT("Bearer ") + Snapshot.ApiKey);
             Retry->SetContentAsString(RetryBody);
-            Retry->SetTimeout(ReviewProvider.Configuration.TimeoutSeconds);
+            Retry->SetTimeout(Snapshot.Configuration.TimeoutSeconds);
             Retry->OnProcessRequestComplete().BindUObject(
                 this, &UAiNpcProviderSubsystem::HandleReviewHttpComplete, ReviewRequestId);
             ++Pending->RetryCount;
+            Pending->HttpRequest = Retry;
             if (Retry->ProcessRequest()) return;
             Error = TEXT("review_request_start_failed");
         }

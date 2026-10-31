@@ -1,7 +1,7 @@
 ---
 handoff_schema: tavernweave/next/v1
 project_id: ai-npc-knowledge-grant
-status: 0.4.4-release-candidate
+status: 0.4.5-release-candidate
 updated: 2026-10-31
 ---
 
@@ -10,11 +10,20 @@ updated: 2026-10-31
 ## 当前权威
 
 - 产品边界：仅面向 Unreal Engine 单机/联机 ARPG。
-- 当前版本：`0.4.4`，UE 5.8 / Win64。
+- 当前版本：`0.4.5`，UE 5.8 / Win64。
 - 总设计案：`总设计案.md`
 - 活动蓝图：`蓝图集/BP-04-简易AI小镇演示.md`
 - 执行期持久权威蓝图预算：`0`
 - 冻结概念：知识授权属于“当前玩家 × 当前语境”；NPC Receiver 只保存人格反应，不是第三个授权集合。
+
+## 0.4.5 安全一致性修复
+
+- 语义审查 Policy 在 pending review 生命周期内持有强引用；失效时返回 `semantic_review_policy_unavailable`。
+- Review Provider 请求保存创建时的配置/模型/Generation 快照；配置变化后的迟到回调与重试不会被发送到新 Provider。
+- 清除 Review 凭据会取消在途 HTTP 请求；迟到的旧响应失败关闭。
+- 对话 Provider 请求也记录 Generation 和 HTTP 句柄；清除凭据、替换 Profile 或关闭 Session 后不接收旧响应。
+- 玩家知识 Snapshot 升级到 Schema v4：`ProcessedGrants` 作为 append-only 事件账本，新增 `RevokedPackIds`；撤销后旧 GrantEventId 不能重新授权。
+- 自动化保持 20 组，新增撤销重放断言。
 
 ## 0.4.4 修复
 

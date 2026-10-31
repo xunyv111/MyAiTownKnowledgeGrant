@@ -43,7 +43,7 @@
 - [ ] 任务蓝图不直接传入玩家 ID、KnowledgePack 或 GrantEventId；正式授予只走 ARPG 适配器固定注册表。
 - [ ] `On Grant Audited` 已接入宿主持久化/Outbox；`bPersistenceRequired=true` 不会被静默忽略。
 - [ ] 多人项目使用服务器 Authority，并为 Receiver 提供稳定 `AudienceId`。
-- [ ] SaveGame 使用 Schema v3 与稳定的 `Pack Registry Version`；v1/v2 已显式迁移或废弃。
+- [ ] SaveGame 使用玩家 Schema v4 与稳定的 `Pack Registry Version`；v1/v2/v3 已显式迁移或废弃。
 - [ ] 客户端包中的明文 Data Asset 不包含必须防拆包的秘密正文。
 - [ ] 目标 UE 版本、目标平台完成编译、Automation、Cook/Package 和项目级联机验收。
 
@@ -51,8 +51,8 @@
 
 - 输出门只做证据引用与元数据一致性检查，不证明开放域文本完整蕴含引用事实；规范事实模板或外部语义验证属于宿主职责。
 - 宿主若绕开 Guard，插件无法阻止原始模型文本泄漏。
-- v1/v2 玩家与 Receiver 快照不会自动迁移到 v3。
-- Grant/Receipt 去重历史尚无内置滚动窗口，也没有 revoke/rollback；超长在线会话应由宿主制定保留、撤销和迁移策略。
+- 玩家快照 v1/v2/v3 不会自动迁移到 v4；Receiver 快照 v1/v2 不会自动迁移到 v3。
+- Grant/Receipt 去重历史尚无内置滚动窗口；撤销会保留事件账本，但跨服回滚和长期保留策略仍由宿主负责。
 - 插件控制“运行时允许进入对话上下文的资料”，不提供客户端资产反拆包保密。
 - 插件只负责 ARPG 项目内授权，不实现跨服账本、服务器迁移、服务端正文存储或 NPC 全局持久身份。
 

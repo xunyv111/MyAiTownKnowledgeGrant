@@ -4,7 +4,7 @@
 
 **作者与版权人：xunyv**  
 
-0.4.4 包含 Claim 级语义审查、`ClientRequestId` 幂等、每 NPC Provider、格式修复与有限重试、确定性授权兜底和人格热切换，并修复本地语义审查失败路径的重复最终回复。
+0.4.5 包含 Claim 级语义审查、`ClientRequestId` 幂等、每 NPC Provider、格式修复与有限重试、确定性授权兜底和人格热切换；同时修复本地语义审查失败路径的重复最终回复，并加固 Policy 生命周期、Provider Generation 和撤销后的 GrantEventId 重放边界。
 
 专用于单机或联机 ARPG 的 Unreal Engine Runtime 插件。0.4.0 增加插件原生的玩家自带密钥（BYOK）AI-NPC 角色扮演入口：玩家可在运行时面板连接兼容 OpenAI Chat Completions 请求与响应格式的服务，每个挂载 `AI NPC Dialogue Component` 的 NPC 自动建立独立本地会话。API Key、Session 状态和最近的已批准对话只在当前游戏进程中使用，不由插件持久化；玩家明确同意后，角色说明、当轮授权事实和玩家当前发言会发送给对话服务，机械校验后的候选文本与允许事实会发送给配置的语义审查服务。自由生成的模型候选必须依次通过严格 JSON、机械事实守卫和语义审查，正式出口只消费 `FinalApprovedText`。
 
@@ -49,7 +49,7 @@ flowchart TD
     I --> J["字幕 · 语音 · 行为 · 正式日志"]
 
     B -. "旁路：已授权包" .-> K["NPC 人格反应"]
-    B -. "持久化" .-> L["Schema v3 Snapshot"]
+    B -. "持久化" .-> L["Schema v4 Snapshot"]
 ```
 
 ### 图例
@@ -198,7 +198,7 @@ flowchart TD
     REACT --> RESULT["兴趣 · 威胁感 · 台词语气<br/>行为意图 · 情绪建议"]
     RESULT --> MEMORY["AudienceId × ReceiptEventId<br/>反应记忆"]
 
-    PLAYER --> PSNAP["Player Snapshot<br/>Schema v3"]
+    PLAYER --> PSNAP["Player Snapshot<br/>Schema v4"]
     MEMORY --> RSNAP["Receiver Snapshot<br/>Schema v3"]
 
     PSNAP --> RESTORE{"Registry、前置闭包、事件历史<br/>和 Schema 全部有效?"}
@@ -249,7 +249,7 @@ flowchart TD
 
 将 `MyAiTownKnowledgeGrant` 整个目录复制到 Unreal 项目的 `Plugins/` 下，重新生成项目文件并编译。插件只使用 UE 内置的 GameplayTags、HTTP、JSON、UMG 和 Slate 模块，不依赖第三方模型 SDK 或数据库。
 
-`0.4.4` 源码已通过 UE 5.8.4 / Win64 隔离 BuildPlugin 验证及插件 Automation 20/20；二进制包以正式发布资产为准。安装、宿主发布前检查与已知边界见 [INSTALL.md](INSTALL.md)，官方构建清单见 [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)。其他引擎版本或平台应使用源码重新编译。
+`0.4.5` 源码已通过 UE 5.8.4 / Win64 隔离 BuildPlugin 验证及插件 Automation 20/20；二进制包以正式发布资产为准。安装、宿主发布前检查与已知边界见 [INSTALL.md](INSTALL.md)，官方构建清单见 [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)。其他引擎版本或平台应使用源码重新编译。
 
 单机 ARPG 推荐把 `Knowledge Grant Component` 挂在跨关卡可恢复的玩家 Actor 或 PlayerState 上；联机 ARPG 推荐挂在服务器权威且可复制的 PlayerState 上。不要挂在每个 NPC 上。
 
@@ -340,12 +340,12 @@ flowchart TD
 - 组件状态自动复制，但仅同步给拥有该组件的连接（`COND_OwnerOnly`）：其他客户端不会收到玩家的授权包与 `ProcessedGrants` 授予历史，任务进度和稳定玩家 ID 不随网络广播。授予和恢复只能在 Authority 上执行。
 - 存档时调用 `Create Snapshot`，传入项目当前的稳定 `Pack Registry Version`，再把返回结构写入 SaveGame 或后端。
 - 载入时在服务端调用 `Restore Snapshot`，同时传入当前注册的全部 `Knowledge Pack` 和期望的注册表版本。
-- 当前知识快照 Schema 为 v3。恢复会拒绝旧 Schema、注册表版本不匹配、未注册包、缺失前置闭包、循环前置、伪造 Tags、无对应事件历史的已授予包，以及指向未授权包的事件记录；授权 Tags 会根据注册包重新派生。
+- 当前玩家知识快照 Schema 为 v4。恢复会拒绝旧 Schema、注册表版本不匹配、未注册包、缺失前置闭包、循环前置、伪造 Tags、无对应事件历史的已授予包，以及指向未知包的事件记录；授权 Tags 会根据注册包重新派生。
 - 恢复成功后 Revision 必定大于当前状态与快照中的 Revision，并生成新的 `AuthorizationEpoch`，因此恢复前的全部对话视图都会失效。
-- v1/v2 快照不会静默迁移。项目若需要保留旧存档，应在宿主层显式迁移并重新生成 v3 快照。
-- Receiver 反应快照为 Schema v3；每条 receipt 必须包含规范化的 `AudienceId`，反应分数、语气、行为意图和建议增量都必须落在插件定义范围。旧 v1/v2 快照失败关闭。恢复成功会广播 `On Reaction Memory Restored`，宿主可直接刷新表现。
-- `ProcessedGrants` 保存规范化的 `GrantEventId → PackId`，防止重放和事件 ID 换包。
-- 撤销使用 `Revoke Knowledge Pack`，需要传入当前注册包；会移除该包的授权与历史并重新派生 Tags。若仍有已授权包依赖它，返回 `pack_has_dependents`，必须先撤销依赖者。
+- 玩家快照 v1/v2/v3 不会静默迁移。项目若需要保留旧存档，应在宿主层显式迁移并重新生成 v4 快照。
+- Receiver 反应快照仍为 Schema v3；每条 receipt 必须包含规范化的 `AudienceId`，反应分数、语气、行为意图和建议增量都必须落在插件定义范围。旧 v1/v2 快照失败关闭。
+- `ProcessedGrants` 现在是 append-only 事件账本，保存规范化的 `GrantEventId → PackId`；撤销不会删除它，用于阻止旧事件重放和事件 ID 换包。
+- 撤销使用 `Revoke Knowledge Pack`，需要传入当前注册包；会移除当前授权与 Tags，但保留事件账本，并把包记入 `RevokedPackIds`。旧 GrantEventId 只能得到幂等 duplicate，新的 GrantEventId 才能显式重新授权。若仍有已授权包依赖它，返回 `pack_has_dependents`。
 - `Max Processed Grant Records` 与 Receiver 的 `Max Receipt Records` 默认 `0`（不限）；设置为正数时，超出上限返回 `grant_history_full` / `receipt_history_full`，失败关闭而不是静默丢弃历史。
 
 ## 验收
@@ -374,7 +374,7 @@ flowchart TD
 - `MyAiTown.KnowledgeGrant.Reaction.DelayedReceipt`
 - `KnowledgeGrantHost.Network.FKnowledgeAuthorityIsolationNetworkTest.AuthorityAndPlayerIsolation`（宿主 Editor 专用）
 
-自动化测试覆盖：公共任务常识可用但未来细节不可用、后续骨牌乱序拒绝、每次事件只新增当前事实、任务包兼容、事件幂等、事件 ID 换包冲突、注册表一致的快照恢复、跨版本/伪造/缺前置/循环/缺事件历史快照拒绝、无效但未授权注册包不阻塞恢复、语境隔离与 Collector 取实时 Tags、空证据拦截、整段/逐条策略、陈旧/篡改视图拒绝、错专名、漏报受保护专名、错数字、正负号与小数、中文书写数字、反转否定、畸形/越界模型 JSON、撤销依赖保护与可选历史上限，以及同一事实结合不同人格形成不同反应。Receiver 测试证明共享 NPC 可分别记录玩家 A/B 的同名事件、单个玩家内部仍幂等、非 Authority 拒绝、受众/事件 ID 规范化、事件换包冲突、伪造越界反应拒绝和可选 receipt 上限。宿主演示还验证清空后 HUD 不保留旧反应、恢复后从 Receiver 快照重建可见反应。宿主网络测试另以专用服务器和两个真实 PIE 客户端验证：玩家 A 的授权复制后不会出现在玩家 B，客户端直接授予与恢复均返回 `authority_required` 且不改变修订号。
+自动化测试覆盖：公共任务常识可用但未来细节不可用、后续骨牌乱序拒绝、每次事件只新增当前事实、任务包兼容、事件幂等、事件 ID 换包冲突、注册表一致的快照恢复、跨版本/伪造/缺前置/循环/缺事件历史快照拒绝、无效但未授权注册包不阻塞恢复、语境隔离与 Collector 取实时 Tags、空证据拦截、整段/逐条策略、陈旧/篡改视图拒绝、错专名、漏报受保护专名、错数字、正负号与小数、中文书写数字、反转否定、畸形/越界模型 JSON、撤销依赖保护、撤销后旧 GrantEventId 重放保护、可选历史上限，以及同一事实结合不同人格形成不同反应。Receiver 测试证明共享 NPC 可分别记录玩家 A/B 的同名事件、单个玩家内部仍幂等、非 Authority 拒绝、受众/事件 ID 规范化、事件换包冲突、伪造越界反应拒绝和可选 receipt 上限。宿主演示还验证清空后 HUD 不保留旧反应、恢复后从 Receiver 快照重建可见反应。宿主网络测试另以专用服务器和两个真实 PIE 客户端验证：玩家 A 的授权复制后不会出现在玩家 B，客户端直接授予与恢复均返回 `authority_required` 且不改变修订号。
 
 本插件已在 Unreal Engine 5.8.4 完成隔离 BuildPlugin：UHT、Editor Development、Game Development 与 Game Shipping 均通过。最终构建包在 UE 5.8.4 临时宿主中完成插件 Automation 20/20，0 警告、0 失败。旧版宿主与联机测试只作为历史集成基线，不冒充本轮 UE 5.8 结果；完整边界见 [VALIDATION.md](VALIDATION.md)。
 

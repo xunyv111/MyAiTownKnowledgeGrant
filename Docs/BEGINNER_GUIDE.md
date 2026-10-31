@@ -68,7 +68,7 @@
 
 ### 3.1 环境要求
 
-- Unreal Engine 5.8；仓库中的 0.4.4 已在 UE 5.8.4 / Win64 验证。
+- Unreal Engine 5.8；仓库中的 0.4.5 已在 UE 5.8.4 / Win64 验证。
 - Windows 源码编译需要 Visual Studio 2022、Desktop development with C++ 工作负载，以及与 UE 对应的 Windows SDK。
 - 纯 Blueprint 项目第一次加载源码插件时仍可能要求本机具备 C++ 编译工具链。
 
@@ -651,9 +651,9 @@ Restore Reaction Snapshot
 
 ### 16.3 版本边界
 
-当前 Schema 为 v3。插件拒绝旧 Schema、错误 Registry 版本、缺少前置包、循环依赖、伪造 Tags 和没有事件历史的授权包。
+当前玩家知识 Schema 为 v4，NPC 反应快照仍为 v3。插件拒绝旧 Schema、错误 Registry 版本、缺少前置包、循环依赖、伪造 Tags 和没有事件历史的已授权包。撤销后的旧 GrantEventId 保留为幂等 duplicate，不会重新授权。
 
-如果你需要保留 v1 或 v2 存档，请在宿主项目中编写显式迁移。插件不会猜测旧数据如何转换。
+如果你需要保留 v1/v2/v3 玩家快照或 v1/v2 Receiver 快照，请在宿主项目中编写显式迁移。插件不会猜测旧数据如何转换。
 
 ## 17. 单机、Listen Server 与专用服务器
 

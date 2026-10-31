@@ -84,17 +84,22 @@ private:
         FAiNpcProviderConfiguration Configuration;
         FString ApiKey;
         bool bConfigured = false;
+        uint64 Generation = 0;
     };
 
     struct FNpcSession
     {
         FAiNpcPersona Persona;
         TSet<FGuid> PendingRequests;
+        TMap<FGuid, uint64> PendingGenerations;
+        TMap<FGuid, TSharedPtr<class IHttpRequest>> PendingHttpRequests;
     };
 
     struct FPendingReviewRequest
     {
         FKnowledgeSemanticReviewRequest Request;
+        FRuntimeProvider ProviderSnapshot;
+        TSharedPtr<class IHttpRequest> HttpRequest;
         int32 RetryCount = 0;
         double StartedAtSeconds = 0.0;
     };
@@ -111,6 +116,8 @@ private:
     const FRuntimeProvider* DialogueProviderForSession(const FNpcSession& Session) const;
     bool ValidateIndependentPair(EAiNpcProviderChannel Channel,
         const FAiNpcProviderConfiguration& Configuration, FString& OutError) const;
+    void CancelPendingReviewRequests();
+    void CancelDialogueRequestsForProfile(FName ProviderProfileId, bool bAllProfiles);
     FGuid DispatchDialogueRequest(FGuid SessionId, const FString& Body,
         const FRuntimeProvider& Provider, FString& OutError);
     void HandleDialogueHttpComplete(TSharedPtr<class IHttpRequest> Request,

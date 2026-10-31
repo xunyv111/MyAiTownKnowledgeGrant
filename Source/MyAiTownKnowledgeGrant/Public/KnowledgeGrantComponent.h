@@ -29,8 +29,13 @@ struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeGrantState
     UPROPERTY(SaveGame, BlueprintReadOnly, Category = "Knowledge")
     FGameplayTagContainer GrantedTags;
 
+    /** Append-only event ledger; revoked event IDs remain here for replay protection. */
     UPROPERTY(SaveGame, BlueprintReadOnly, Category = "Knowledge")
     TArray<FKnowledgeGrantRecord> ProcessedGrants;
+
+    /** Packs that are currently revoked but still retain their event history. */
+    UPROPERTY(SaveGame, BlueprintReadOnly, Category = "Knowledge")
+    TArray<FName> RevokedPackIds;
 
     UPROPERTY(SaveGame, BlueprintReadOnly, Category = "Knowledge")
     int32 Revision = 0;
@@ -46,7 +51,7 @@ struct MYAITOWNKNOWLEDGEGRANT_API FKnowledgeGrantSnapshot
     GENERATED_BODY()
 
     UPROPERTY(SaveGame, BlueprintReadOnly, Category = "Knowledge")
-    int32 SchemaVersion = 3;
+    int32 SchemaVersion = 4;
 
     /** Version of the exact pack registry used when this snapshot was created. */
     UPROPERTY(SaveGame, BlueprintReadOnly, Category = "Knowledge")
@@ -104,8 +109,9 @@ public:
     bool HasKnowledgeTag(FGameplayTag KnowledgeTag) const;
 
     /**
-     * Removes one granted pack and its grant history. Fails if another granted
-     * pack still depends on it. RegisteredPacks is used to re-derive tags.
+     * Removes one active grant while retaining its event history for replay
+     * protection. Fails if another granted pack still depends on it.
+     * RegisteredPacks is used to re-derive tags.
      */
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Knowledge")
     FKnowledgeGrantResult RevokeKnowledgePack(FName PackId, const TArray<UKnowledgePack*>& RegisteredPacks);

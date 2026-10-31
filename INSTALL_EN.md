@@ -61,7 +61,7 @@ Credentials remain in runtime memory and are not persisted by the plugin. Produc
 - [ ] Quest Blueprints cannot supply arbitrary player IDs, packs, or grant event IDs.
 - [ ] `On Grant Audited` is connected to the host persistence or outbox layer when required.
 - [ ] Multiplayer projects perform all grants and restores on server authority.
-- [ ] SaveGame data uses snapshot schema v3 and a stable Pack Registry Version.
+- [ ] SaveGame data uses player snapshot schema v4 and a stable Pack Registry Version.
 - [ ] Plaintext client assets contain no story secrets that must resist extraction.
 - [ ] The target engine and platform pass compile, Automation, Cook, Package, and project multiplayer acceptance.
 
@@ -69,7 +69,7 @@ Credentials remain in runtime memory and are not persisted by the plugin. Produc
 
 - The mechanical guard checks evidence references and metadata consistency; it does not prove open-domain semantic entailment.
 - Bypassing the guard or publishing raw model text removes the plugin's leakage protections.
-- Snapshot schema v1/v2 is not automatically migrated to v3.
+- Player snapshot schema v1/v2/v3 is not automatically migrated to v4; receiver snapshots remain v3.
 - Grant and reaction history has no built-in rolling compaction. Long-running projects must set capacity and persistence policies.
 - Runtime authorization does not prevent extraction of plaintext Data Assets cooked into a client build.
 - The plugin does not implement a cross-server ledger, server migration, server-side content storage, or global persistent NPC identity.

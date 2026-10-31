@@ -5,7 +5,7 @@
 
 ## 本轮结论
 
-0.4.4 / Schema v3 已通过 UE 5.8.4 真实编译与自动化。隔离 `RunUAT BuildPlugin` 覆盖 UHT、Editor Development、Game Development 和 Game Shipping；最终构建包在最小 UE 5.8.4 宿主中加载并完成插件 Automation 20/20，0 警告、0 失败。Provider 合同覆盖显式同意、HTTPS、Key 不进入 JSON、当轮字段披露和结构化语义响应；0.4.2 的任务接口调度与共享语义审查路由修复均包含在本次构建和测试源码中。
+0.4.5 / 玩家 Schema v4 已通过 UE 5.8.4 真实编译与自动化。隔离 `RunUAT BuildPlugin` 覆盖 UHT、Editor Development、Game Development 和 Game Shipping；最终构建包在最小 UE 5.8.4 宿主中加载并完成插件 Automation 20/20，0 警告、0 失败。Provider 合同覆盖显式同意、HTTPS、Key 不进入 JSON、当轮字段披露和结构化语义响应；0.4.2 的任务接口调度与共享语义审查路由修复均包含在本次构建和测试源码中。
 
 隔离 ARPG 宿主 5/5、专用服务器/双客户端 PIE 及离屏关卡验收来自 UE 5.7.4 历史集成基线，本轮未在 UE 5.8.4 重跑，因此不计入本轮 20/20 结果。
 
@@ -65,9 +65,9 @@
 
 `Runtime.ContextCollector` 明确覆盖：多个重叠场景来源取并集；同一来源更新时替换旧标签；退出一个 Volume 不清除其他 Volume；切换交互对象后，旧对象迟到的 End 事件不能清除新对象；显式专名与场景/交互叠加；会话重置清空所有来源。收集器只选择信息库，不调用任何知识授予 API。
 
-`Runtime.SnapshotConsistency` 明确覆盖：匹配注册表版本的合法 Schema v3 快照可恢复且授权标签由知识包重新派生；注册表版本不匹配、伪造额外标签、缺失前置包、未注册包、循环依赖、缺失事件历史和事件指向未授权包均失败关闭；无效但未授权的注册包不再阻塞合法恢复，非法已授权包仍失败关闭。失败恢复从已授予一个包的非默认状态开始，验证包、Revision 和事件历史均保持不变。恢复携带相同 Revision 的不同合法状态时，组件强制递增 Revision，旧视图失败关闭。撤销叶子包会移除其授权、历史并重派生 Tags；撤销后的快照可恢复；仍有依赖者时撤销失败。
+`Runtime.SnapshotConsistency` 明确覆盖：匹配注册表版本的合法 Schema v4 快照可恢复且授权标签由知识包重新派生；注册表版本不匹配、伪造额外标签、缺失前置包、未注册包、循环依赖、缺失事件历史和事件指向未授权包均失败关闭；无效但未授权的注册包不再阻塞合法恢复，非法已授权包仍失败关闭。失败恢复从已授予一个包的非默认状态开始，验证包、Revision 和事件历史均保持不变。恢复携带相同 Revision 的不同合法状态时，组件强制递增 Revision，旧视图失败关闭。撤销叶子包会移除其当前授权并记入 `RevokedPackIds`，事件账本继续保留；撤销后的快照可恢复且旧 GrantEventId 只能得到幂等 duplicate；仍有依赖者时撤销失败。
 
-`Runtime.ContextTagLibraries` 现在覆盖 Collector 绑定的输出守卫：从实际收集器读取实时 Tags 放行匹配视图；收集器切换场景后拒绝旧视图；没有有效收集器时返回 `context_collector_missing`。`Runtime.CausalChain` 覆盖依赖保护、撤销后事实减少、撤销后缺少前置不能重授予，以及可选 `MaxProcessedGrantRecords` 上限失败关闭。`Reaction.DelayedReceipt` 覆盖可选 `MaxReceiptRecords` 上限。
+`Runtime.ContextTagLibraries` 现在覆盖 Collector 绑定的输出守卫：从实际收集器读取实时 Tags 放行匹配视图；收集器切换场景后拒绝旧视图；没有有效收集器时返回 `context_collector_missing`。`Runtime.CausalChain` 覆盖依赖保护、撤销后事实减少、撤销后旧事件重放保持幂等、缺少前置的新事件不能重授予，以及可选 `MaxProcessedGrantRecords` 上限失败关闭。`Reaction.DelayedReceipt` 覆盖可选 `MaxReceiptRecords` 上限。
 
 `AuthorityAndPlayerIsolation` 使用 UE CQTest 实际启动一台专用服务器和两个 PIE 客户端。服务端只向 Player A 的 `AKnowledgeDemoPlayerState` 授予知识，两个客户端复制收敛后均确认 A 有该包、B 没有；随后每个客户端在 Player B 组件上直接调用授予和快照恢复，两者都返回 `authority_required`，修订号不变。36 条警告均为 CQTest 临时 `/Temp/UEDPIE_*` Level 的 `FNetGUIDCache` / `RegisterNetGUID_Client` 日志，没有业务错误或断言失败。
 
@@ -88,7 +88,7 @@
 - 玩家只获得已发生的因果事实；未来事件、道具和结果不会因场景标记提前授权。
 - `FDialogueKnowledgeView` 固化玩家修订、授权世代、语境、允许文档及 CRC32 一致性校验；输出门精确比较当轮实时语境。CRC32 不作为安全签名。
 - `UKnowledgeContextCollectorComponent` 可以从重叠场景、当前交互对象和显式专名汇总 Tags；使用弱引用跟踪来源，不会因已销毁 Actor 留下激活信息。
-- 快照 Schema v3 绑定注册表版本与 `EventId → PackId` 历史；恢复时验证授权包、事件对应、前置闭包和循环依赖，并重新派生 Tags、递增 Revision、生成新授权世代。
+- 玩家快照 Schema v4 绑定注册表版本与 `EventId → PackId` 历史；恢复时验证授权包、事件对应、前置闭包和循环依赖，并重新派生 Tags、递增 Revision、生成新授权世代。
 - 真实专用服务器/双客户端 PIE 中，授权状态按 PlayerState 组件独立复制；玩家 A 的包不会串到玩家 B，客户端不能直接授予或恢复。
 - 保存并清空会同时重置 Receiver 记忆、`LatestReactions` 和场景 NPC 文字；恢复成功后可见人格反应由 Receiver 快照重新构建。
 - Receiver reaction receipt 以稳定 `(AudienceId, ReceiptEventId)` 为键；共享 NPC 面向不同玩家的反应和幂等状态彼此隔离，但仍不参与知识授权。

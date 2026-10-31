@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.5 - 2026-10-31
+
+- 修复语义审查 Policy 弱引用失效风险：pending review 在完成前持有强引用，Policy 失效时失败关闭。
+- Review Provider 请求固定配置、模型和 Provider Generation 快照；配置切换后旧请求不会重试到新 Provider。
+- 清除 Review 凭据时取消在途 HTTP 请求，并拒绝 Generation 不匹配的迟到回调。
+- 对话 Provider 请求记录 Generation 与 HTTP 句柄；清除凭据或替换 Profile 后旧响应失败关闭。
+- 玩家知识 Snapshot 升级到 Schema v4：事件历史与当前授权分离，撤销后保留 `ProcessedGrants` 并记录 `RevokedPackIds`。
+- 撤销后的旧 `GrantEventId` 保持幂等且不会重新授权；新的 GrantEventId 才能显式重新授权。
+- 增加撤销重放回归断言；Automation 保持 20 组。
+
 ## 0.4.4 - 2026-10-31
 
 - 修复本地语义审查失败路径的重复最终回复：新增 `FailSemanticReview`，原子移除 pending review 并广播一次 Error completion。

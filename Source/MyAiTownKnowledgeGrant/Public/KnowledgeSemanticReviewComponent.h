@@ -291,6 +291,10 @@ private:
 
     TMap<FString, FPendingReview> PendingReviews;
 
+    /** Keeps the policy used at review start alive for the full async review. */
+    UPROPERTY(Transient)
+    TMap<FString, TObjectPtr<UKnowledgeSemanticReviewPolicy>> PendingPolicyRefs;
+
     bool HasAuthorityForMutation() const;
     static bool CollectLiveContext(
         const TArray<TWeakObjectPtr<UKnowledgeContextCollectorComponent>>& Collectors,

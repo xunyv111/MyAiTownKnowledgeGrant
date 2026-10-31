@@ -914,6 +914,19 @@ bool FKnowledgeSnapshotConsistencyTest::RunTest(const FString& Parameters)
         RevokedRestoreTarget->RestoreSnapshot(RevokedSnapshot, Registry, TestPackRegistryVersion).bOk);
     TestFalse(TEXT("The restored post-revoke state keeps the revoked pack locked"),
         RevokedRestoreTarget->HasKnowledgePack(Result->PackId));
+    const FKnowledgeGrantResult ReplayedRevokedGrant =
+        RevokedRestoreTarget->GrantKnowledgeFromWorldEvent(
+            TEXT("snapshot:revoke:result"), Result->SourceWorldEventId, Result);
+    TestTrue(TEXT("Replaying a revoked GrantEventId is idempotent and does not re-authorize"),
+        ReplayedRevokedGrant.bOk && ReplayedRevokedGrant.bDuplicate
+        && !ReplayedRevokedGrant.bApplied
+        && !RevokedRestoreTarget->HasKnowledgePack(Result->PackId));
+    const FKnowledgeGrantResult ExplicitReGrant =
+        RevokedRestoreTarget->GrantKnowledgeFromWorldEvent(
+            TEXT("snapshot:revoke:regrant"), Result->SourceWorldEventId, Result);
+    TestTrue(TEXT("A new GrantEventId can explicitly re-authorize a revoked pack"),
+        ExplicitReGrant.bOk && ExplicitReGrant.bApplied
+        && RevokedRestoreTarget->HasKnowledgePack(Result->PackId));
 
     UKnowledgeGrantComponent* Rejected = MakeGrantComponent();
     TestTrue(TEXT("Rejected-restore fixture starts from a non-default state"),
@@ -1073,9 +1086,16 @@ bool FKnowledgeCausalChainTest::RunTest(const FString& Parameters)
         UKnowledgeResolverLibrary::BuildDialogueKnowledgeView(Player, AllPacks, FGameplayTagContainer()).AllowedDocuments.Num(), 1);
     const FKnowledgeGrantResult RegrantBell = Player->GrantKnowledgeFromWorldEvent(
         TEXT("player:decoded-bell:1"), Bell->SourceWorldEventId, Bell);
-    TestFalse(TEXT("A revoked pack cannot be re-granted before its prerequisite"), RegrantBell.bOk);
-    TestEqual(TEXT("Failed re-grant restores its explicit prerequisite error"),
-        RegrantBell.Error, FString(TEXT("knowledge_prerequisite_missing")));
+    TestTrue(TEXT("Replaying a revoked GrantEventId is idempotent"),
+        RegrantBell.bOk && RegrantBell.bDuplicate && !RegrantBell.bApplied);
+    TestFalse(TEXT("Replaying a revoked event does not re-authorize the pack"),
+        Player->HasKnowledgePack(Bell->PackId));
+    const FKnowledgeGrantResult NewEventBeforePrerequisite = Player->GrantKnowledgeFromWorldEvent(
+        TEXT("player:decoded-bell:2"), Bell->SourceWorldEventId, Bell);
+    TestFalse(TEXT("A new event cannot bypass a missing prerequisite"),
+        NewEventBeforePrerequisite.bOk);
+    TestEqual(TEXT("A new event restores the explicit prerequisite error"),
+        NewEventBeforePrerequisite.Error, FString(TEXT("knowledge_prerequisite_missing")));
 
     UKnowledgeGrantComponent* Capped = MakeGrantComponent();
     Capped->MaxProcessedGrantRecords = 1;
