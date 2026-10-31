@@ -151,7 +151,7 @@ if (fs.existsSync(path.join(root, providerSource))) {
 const npcDialogueSource = "Source/MyAiTownKnowledgeGrant/Private/AiNpcDialogueComponent.cpp";
 if (fs.existsSync(path.join(root, npcDialogueSource))) {
   const dialogue = read(npcDialogueSource);
-  for (const marker of ["OpenNpcSession", "BuildDialogueKnowledgeView", "GuardKnowledgeModelJsonResponseForCollectors", "BeginSemanticReview", "FinalApprovedText", "LocalTranscript", "TryResolveExistingClientRequest", "IsPendingTurnCurrent", "CorrelateSemanticRequest", "DiscardStaleTurn"]) {
+  for (const marker of ["OpenNpcSession", "BuildDialogueKnowledgeView", "GuardKnowledgeModelJsonResponseForCollectors", "CreateSemanticReview", "DispatchSemanticReviewRequest", "FinalApprovedText", "LocalTranscript", "TryResolveExistingClientRequest", "IsPendingTurnCurrent", "CorrelateSemanticRequest", "DiscardStaleTurn"]) {
     if (!dialogue.includes(marker)) errors.push(`AI NPC dialogue component is missing invariant: ${marker}`);
   }
   for (const forbidden of ["StartingSemanticForProviderRequest"]) {

@@ -70,7 +70,7 @@ UKnowledgeSemanticReviewComponent::UKnowledgeSemanticReviewComponent()
     PrimaryComponentTick.bStartWithTickEnabled = true;
 }
 
-FKnowledgeSemanticReviewBeginResult UKnowledgeSemanticReviewComponent::BeginSemanticReview(
+FKnowledgeSemanticReviewBeginResult UKnowledgeSemanticReviewComponent::CreateSemanticReview(
     const UKnowledgeGrantComponent* PlayerKnowledge,
     const FDialogueKnowledgeView& KnowledgeView,
     const TArray<UKnowledgeContextCollectorComponent*>& ContextCollectors,
@@ -153,7 +153,31 @@ FKnowledgeSemanticReviewBeginResult UKnowledgeSemanticReviewComponent::BeginSema
 
     Begin.bOk = true;
     Begin.Request = Request;
-    OnSemanticReviewRequested.Broadcast(Request);
+    return Begin;
+}
+
+bool UKnowledgeSemanticReviewComponent::DispatchSemanticReviewRequest(const FString& RequestId)
+{
+    if (!HasAuthorityForMutation()) return false;
+    const FPendingReview* Pending = PendingReviews.Find(RequestId);
+    if (Pending == nullptr) return false;
+    OnSemanticReviewRequested.Broadcast(Pending->Request);
+    return true;
+}
+
+FKnowledgeSemanticReviewBeginResult UKnowledgeSemanticReviewComponent::BeginSemanticReview(
+    const UKnowledgeGrantComponent* PlayerKnowledge,
+    const FDialogueKnowledgeView& KnowledgeView,
+    const TArray<UKnowledgeContextCollectorComponent*>& ContextCollectors,
+    const FKnowledgeDialogueGuardResult& MechanicalResult,
+    const UKnowledgeSemanticReviewPolicy* Policy)
+{
+    const FKnowledgeSemanticReviewBeginResult Begin = CreateSemanticReview(
+        PlayerKnowledge, KnowledgeView, ContextCollectors, MechanicalResult, Policy);
+    if (Begin.bOk)
+    {
+        DispatchSemanticReviewRequest(Begin.Request.RequestId);
+    }
     return Begin;
 }
 

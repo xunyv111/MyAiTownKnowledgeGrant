@@ -6,6 +6,7 @@
 
 #include "CoreMinimal.h"
 #include "ArpgKnowledgeGrantAdapterComponent.h"
+#include "KnowledgeSemanticReviewComponent.h"
 #include "KnowledgeGrantTestTypes.generated.h"
 
 /** Native interface probe that records whether the generated Execute_ thunk used ProcessEvent. */
@@ -24,6 +25,20 @@ public:
         const AActor* PlayerOwner, FName QuestId,
         FString& OutStablePlayerId, int32& OutCompletionRevision,
         bool& bOutDebugEvent) const override;
+};
+
+/** Synchronous host listener used to prove dispatch correlation precedes completion. */
+UCLASS()
+class UKnowledgeSemanticReviewSyncProbe final : public UObject
+{
+    GENERATED_BODY()
+
+public:
+    UPROPERTY() TObjectPtr<UKnowledgeSemanticReviewComponent> Coordinator;
+    int32 RequestCount = 0;
+    bool bApproved = false;
+
+    UFUNCTION() void HandleRequest(FKnowledgeSemanticReviewRequest Request);
 };
 
 #endif // WITH_EDITORONLY_DATA

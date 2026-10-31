@@ -1,0 +1,26 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Plugin structure
+        run: node Scripts/validate-plugin.mjs
+      - name: Release contract
+        run: node Scripts/check-release.mjs
+      - name: Whitespace
+        run: git diff --check HEAD^ HEAD

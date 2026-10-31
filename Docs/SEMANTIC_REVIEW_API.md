@@ -6,6 +6,18 @@
 
 `SafeText` 只表示 FactId、专名、数字、否定和 JSON 合同通过机械检查。启用语义审查后，字幕、语音、行为树和正式日志只能消费 `FinalApprovedText`。
 
+## 接入流程
+
+1. 使用 `Guard Knowledge Model Json Response For Collectors` 得到机械检查结果。
+2. 创建 `Knowledge Semantic Review Policy`，配置稳定 `PolicyVersion`、超时和可信兜底。
+3. 在 Authority 调用 `CreateSemanticReview`，只创建 pending 请求，不广播。
+4. 调用方先建立“审查 RequestId → 对话请求 ID”的关联。
+5. 调用 `DispatchSemanticReviewRequest` 广播 `OnSemanticReviewRequested`；此时宿主可以安全地同步或异步调用 `CompleteSemanticReview`。
+6. 宿主监听事件时，由宿主发送审查请求；否则内置 Provider 发送。两者只能有一个发送方。绑定监听器后，内置 Provider 会自动让出；如无监听器且 `bUseBuiltInSemanticReviewProvider=false`，会失败关闭。
+7. 只消费 `FinalApprovedText`。批准时它是原机械文本；拦截、错误和超时时它是策略资产中的可信兜底。
+
+`BeginSemanticReview` 仅作为兼容便捷入口，内部执行 Create + Dispatch；需要自己建立关联的调用方应使用 Create → Correlate → Dispatch。
+
 ## 请求合同
 
 `FKnowledgeSemanticReviewRequest` 包含：

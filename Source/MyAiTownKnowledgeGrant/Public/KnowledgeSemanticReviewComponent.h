@@ -229,6 +229,27 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Knowledge|Semantic Review")
     FKnowledgeSemanticReviewCompletedSignature OnSemanticReviewCompleted;
 
+    /**
+     * Creates the pending review and returns its request without broadcasting. Callers that must
+     * correlate the review with a dialogue request should call this, correlate, then dispatch.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Knowledge|Semantic Review")
+    FKnowledgeSemanticReviewBeginResult CreateSemanticReview(
+        const UKnowledgeGrantComponent* PlayerKnowledge,
+        const FDialogueKnowledgeView& KnowledgeView,
+        const TArray<UKnowledgeContextCollectorComponent*>& ContextCollectors,
+        const FKnowledgeDialogueGuardResult& MechanicalResult,
+        const UKnowledgeSemanticReviewPolicy* Policy);
+
+    /** Broadcasts OnSemanticReviewRequested for an existing pending review. */
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Knowledge|Semantic Review")
+    bool DispatchSemanticReviewRequest(const FString& RequestId);
+
+    /**
+     * Compatibility convenience: creates and dispatches immediately. Prefer CreateSemanticReview
+     * followed by explicit correlation and DispatchSemanticReviewRequest when a sync host callback
+     * is possible.
+     */
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Knowledge|Semantic Review")
     FKnowledgeSemanticReviewBeginResult BeginSemanticReview(
         const UKnowledgeGrantComponent* PlayerKnowledge,

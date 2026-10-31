@@ -162,8 +162,8 @@ flowchart TD
     M1 -- "否" --> F1["失败关闭<br/>不显示模型原文"]
     M1 -- "是" --> SAFE["机械结果 SafeText<br/>仍不是自由生成台词的正式出口"]
 
-    SAFE --> REVIEW["Begin Semantic Review"]
-    REVIEW --> M2{"语义批准且 Revision、Epoch、Context<br/>仍与原视图一致?"}
+    SAFE --> REVIEW["Create → Correlate → Dispatch Review"]
+    REVIEW --> M2{"逐 Claim 通过且 Revision、Epoch、Context<br/>仍与原视图一致?"}
     M2 -- "否" --> F2["失败关闭<br/>拒绝超时、旧视图或语境变化"]
     M2 -- "是" --> FINAL["FinalApprovedText"]
 
@@ -273,7 +273,7 @@ flowchart TD
 4. 所有 NPC 的对话入口在组装 AI 上下文前调用 `Build Dialogue Knowledge View`，传入当前说话玩家的组件、候选知识包和当前语境标记。
 5. 只在 Authority 侧把视图中的 `Allowed Documents` 交给后续提示词或 RAG 层。结果为空时不添加任何知识提示；非 Authority 客户端调用会得到 `authority_required`。
 6. 每个 `Knowledge Document` 至少配置一个原子 `Knowledge Fact`，包含稳定 `Fact Id`、事实陈述、规范专名、规范数字和否定状态。模型必须输出下文定义的严格 JSON；把原始 JSON、同一个知识视图、实际 `Knowledge Context Collector` 组件和可信策略交给 `Guard Knowledge Model Json Response For Collectors`。该节点在内部读取当轮实时 Tags、完成解析与证据引用/元数据一致性检查，不向蓝图暴露未校验 claims。只有需要自定义语境来源时才使用带显式 `Current Active Context Tags` 的底层入口。
-7. 对自由生成台词启用 `Knowledge Semantic Review Component`：把机械 Guard 结果提交给 `Begin Semantic Review`。内置 AI-NPC 路径可自动转交已配置的审查 Provider；自定义接入则由宿主监听请求并调用自己的云 API、本地模型或语义服务，再把只能批准/拦截的结构化响应交回 `Complete Semantic Review`。组件会在异步返回后重新验证授权和实时语境。
+7. 对自由生成台词启用 `Knowledge Semantic Review Component`：先调用 `Create Semantic Review` 创建请求，建立审查 RequestId 与对话请求的关联，再调用 `Dispatch Semantic Review Request` 广播。内置 AI-NPC 路径在无宿主监听时自动转交已配置的审查 Provider；自定义接入则由宿主监听请求并调用自己的云 API、本地模型或语义服务，再把逐 Claim 的 `claimAssessments` 交回 `Complete Semantic Review`。宿主监听器与内置 Provider 只能有一个发送方；组件会在异步返回后重新验证授权和实时语境。
 8. 启用语义审查时，字幕、语音、行为系统和正式日志只能消费 `FinalApprovedText`；`SafeText` 只是机械校验中间结果。审查超时、错误、覆盖不完整或视图过期全部失败关闭。接口合同见 [Docs/SEMANTIC_REVIEW_API.md](Docs/SEMANTIC_REVIEW_API.md)。
 
 `FDialogueKnowledgeView` 是一次对话的唯一知识快照，包含语境标记、玩家授权修订号、授权世代、允许文档、排除原因和 CRC32 一致性校验值。输出门会把视图语境与调用方提供的当轮实时 Tags 做精确比较，并重新核对当前授权 Revision 与 `AuthorizationEpoch`。切场景、恢复/替换授权状态或改写视图后，分别以 `dialogue_view_context_changed`、`dialogue_view_stale` / `dialogue_view_authorization_changed`、`dialogue_view_tampered` 失败关闭。CRC32 只发现意外改写，不是密码学签名。

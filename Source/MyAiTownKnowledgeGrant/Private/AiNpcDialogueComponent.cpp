@@ -10,7 +10,6 @@
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
-#include "Misc/SecureHash.h"
 
 namespace
 {
@@ -123,10 +122,9 @@ FGuid UAiNpcDialogueComponent::SendPlayerMessageWithClientRequestId(
         PlayerKnowledge, Packs, ActiveTags);
     if (!View.bOk) { OutError = View.Error; return FGuid(); }
     const FString NormalizedInput = PlayerText.TrimStartAndEnd();
-    const FString InputHash = FMD5::HashAnsiString(*NormalizedInput);
     FGuid ExistingRequestId;
     if (TryResolveExistingClientRequest(
-        ClientRequestId, InputHash, View, ExistingRequestId, OutError))
+        ClientRequestId, NormalizedInput, View, ExistingRequestId, OutError))
     {
         if (OutError == TEXT("client_request_conflict")) return FGuid();
         if (OutError == TEXT("request_duplicate_completed"))
@@ -149,7 +147,6 @@ FGuid UAiNpcDialogueComponent::SendPlayerMessageWithClientRequestId(
     {
         FPendingTurn Pending;
         Pending.PlayerText = NormalizedInput;
-        Pending.InputHash = InputHash;
         Pending.AuthorizedContext = AuthorizedContext;
         Pending.KnowledgeView = View;
         Pending.OriginalRequestId = RequestId;
@@ -159,7 +156,7 @@ FGuid UAiNpcDialogueComponent::SendPlayerMessageWithClientRequestId(
 
         PruneCompletedClientRequests(FMath::Max(1, MaxClientRequestRecords - 1));
         FClientRequestRecord Record;
-        Record.InputHash = InputHash;
+        Record.NormalizedInput = NormalizedInput;
         Record.AuthorizationEpoch = View.AuthorizationEpoch;
         Record.ScopeFingerprint = View.ScopeFingerprint;
         Record.OriginalRequestId = RequestId;
@@ -332,14 +329,14 @@ void UAiNpcDialogueComponent::PruneCompletedClientRequests(int32 MaxRecords)
 }
 
 bool UAiNpcDialogueComponent::TryResolveExistingClientRequest(
-    FGuid ClientRequestId, const FString& InputHash,
+    FGuid ClientRequestId, const FString& NormalizedInput,
     const FDialogueKnowledgeView& View, FGuid& OutRequestId, FString& OutError) const
 {
     OutRequestId.Invalidate();
     const FClientRequestRecord* Existing = ClientRequests.Find(ClientRequestId);
     if (Existing == nullptr) return false;
 
-    if (Existing->InputHash != InputHash
+    if (Existing->NormalizedInput != NormalizedInput
         || Existing->AuthorizationEpoch != View.AuthorizationEpoch
         || Existing->ScopeFingerprint != View.ScopeFingerprint)
     {
@@ -500,7 +497,7 @@ void UAiNpcDialogueComponent::HandleProviderCompleted(FAiNpcProviderResult Resul
         PendingTurns.Add(OriginalRequestId, StableTurn);
         Turn = PendingTurns.Find(OriginalRequestId);
     }
-    const FKnowledgeSemanticReviewBeginResult Begin = SemanticReviewComponent->BeginSemanticReview(
+    const FKnowledgeSemanticReviewBeginResult Begin = SemanticReviewComponent->CreateSemanticReview(
         PlayerKnowledge, Turn->KnowledgeView, Collectors, Guarded, SemanticReviewPolicy);
     if (!Begin.bOk)
     {
@@ -510,13 +507,34 @@ void UAiNpcDialogueComponent::HandleProviderCompleted(FAiNpcProviderResult Resul
         return;
     }
 
-    // Correlate at the call site. A shared review component may synchronously broadcast
-    // requests to several dialogue components, so no transient member can identify the owner.
+    // Correlate before dispatch. A host may complete the review synchronously from the event.
     if (!CorrelateSemanticRequest(Begin.Request.RequestId, OriginalRequestId))
     {
         const FPendingTurn StableTurn = *Turn;
         PendingTurns.Remove(OriginalRequestId);
         BroadcastFallback(OriginalRequestId, TEXT("semantic_request_correlation_failed"),
+            SemanticReviewPolicy->ErrorText, &StableTurn);
+        return;
+    }
+    if (!SemanticReviewComponent->DispatchSemanticReviewRequest(Begin.Request.RequestId))
+    {
+        const FPendingTurn StableTurn = *Turn;
+        PendingTurns.Remove(OriginalRequestId);
+        BroadcastFallback(OriginalRequestId, TEXT("semantic_review_dispatch_failed"),
+            SemanticReviewPolicy->ErrorText, &StableTurn);
+        return;
+    }
+
+    // A synchronous host listener may already have completed the review.
+    if (!PendingTurns.Contains(OriginalRequestId)) return;
+
+    // Exactly one sender: a bound host listener owns dispatch; otherwise the built-in provider does.
+    if (SemanticReviewComponent->OnSemanticReviewRequested.IsBound()) return;
+    if (!bUseBuiltInSemanticReviewProvider)
+    {
+        const FPendingTurn StableTurn = *Turn;
+        PendingTurns.Remove(OriginalRequestId);
+        BroadcastFallback(OriginalRequestId, TEXT("semantic_review_listener_missing"),
             SemanticReviewPolicy->ErrorText, &StableTurn);
         return;
     }

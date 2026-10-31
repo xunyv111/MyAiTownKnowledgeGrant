@@ -56,7 +56,7 @@ FinalApprovedText
 - Key 只放入 HTTP `Authorization` Header，不进入 JSON、配置、存档或日志；
 - 对话生成与语义审查是两个逻辑 Channel；默认要求审查通道与对话通道使用不同的 URL 或模型；
 - 每个 NPC 可通过 `ProviderProfileId` 使用独立模型、地址和凭据；
-- 对话请求支持 `ClientRequestId` 幂等、输入哈希、授权 epoch/作用域指纹校验和过期响应丢弃；
+- 对话请求支持 `ClientRequestId` 幂等、规范化输入、授权 epoch/作用域指纹校验和过期响应丢弃；
 - 严格 JSON 失败可做一次受控格式修复；连接失败、429 和临时服务错误可有限重试；
 - 请求和 Session 使用 GUID 关联，NPC 销毁后关闭 Session，迟到结果不会串给另一个 NPC。
 

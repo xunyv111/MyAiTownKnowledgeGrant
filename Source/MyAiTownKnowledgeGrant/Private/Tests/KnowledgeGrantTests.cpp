@@ -1408,6 +1408,24 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("A factual claim cannot bypass evidence by being relabeled non-factual"),
         !TypeMismatch.bApproved
         && TypeMismatch.Error == TEXT("semantic_review_assessment_invalid"));
+
+    UKnowledgeSemanticReviewSyncProbe* SyncProbe =
+        NewObject<UKnowledgeSemanticReviewSyncProbe>();
+    SyncProbe->Coordinator = Coordinator;
+    Coordinator->OnSemanticReviewRequested.AddDynamic(
+        SyncProbe, &UKnowledgeSemanticReviewSyncProbe::HandleRequest);
+    const FKnowledgeSemanticReviewBeginResult SyncBegin = Coordinator->CreateSemanticReview(
+        Player, FreshView, {Collector}, AdviceMechanical, Policy);
+    TestTrue(TEXT("Creating a review does not broadcast before correlation"), SyncBegin.bOk);
+    TestEqual(TEXT("CreateSemanticReview leaves the request pending"), SyncProbe->RequestCount, 0);
+    TestTrue(TEXT("Dispatch broadcasts the already-created request"),
+        Coordinator->DispatchSemanticReviewRequest(SyncBegin.Request.RequestId));
+    TestEqual(TEXT("A synchronous host callback completes exactly once"), SyncProbe->RequestCount, 1);
+    TestTrue(TEXT("A synchronous host callback can approve the review"), SyncProbe->bApproved);
+    TestEqual(TEXT("A synchronous completion consumes the pending request"),
+        Coordinator->GetPendingReviewCount(), 0);
+    Coordinator->OnSemanticReviewRequested.RemoveDynamic(
+        SyncProbe, &UKnowledgeSemanticReviewSyncProbe::HandleRequest);
     return true;
 }
 
@@ -1699,7 +1717,7 @@ bool FKnowledgeRequestIdempotencyTest::RunTest(const FString& Parameters)
     View.ScopeFingerprint = 4242;
 
     UAiNpcDialogueComponent::FClientRequestRecord Record;
-    Record.InputHash = TEXT("input-hash");
+    Record.NormalizedInput = TEXT("input-hash");
     Record.AuthorizationEpoch = View.AuthorizationEpoch;
     Record.ScopeFingerprint = View.ScopeFingerprint;
     Record.OriginalRequestId = ProviderRequestId;

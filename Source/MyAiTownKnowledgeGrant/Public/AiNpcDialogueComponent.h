@@ -32,6 +32,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Guard") TObjectPtr<UKnowledgeDialogueGuardPolicy> GuardPolicy;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Guard") TObjectPtr<UKnowledgeSemanticReviewComponent> SemanticReviewComponent;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Guard") TObjectPtr<UKnowledgeSemanticReviewPolicy> SemanticReviewPolicy;
+    /** If true and no host listener is bound, this component sends the review request to the built-in provider. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Guard") bool bUseBuiltInSemanticReviewProvider = true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Privacy", meta=(ClampMin="1", ClampMax="200")) int32 MaxLocalTranscriptTurns = 24;
     /** Maximum completed client-request records retained for idempotent replay. Oldest completed records are pruned. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI NPC|Request", meta=(ClampMin="1", ClampMax="4096")) int32 MaxClientRequestRecords = 128;
@@ -75,7 +77,6 @@ private:
     struct FPendingTurn
     {
         FString PlayerText;
-        FString InputHash;
         FString AuthorizedContext;
         FDialogueKnowledgeView KnowledgeView;
         FGuid OriginalRequestId;
@@ -87,7 +88,7 @@ private:
 
     struct FClientRequestRecord
     {
-        FString InputHash;
+        FString NormalizedInput;
         FGuid AuthorizationEpoch;
         int64 ScopeFingerprint = 0;
         FGuid OriginalRequestId;
@@ -117,7 +118,7 @@ private:
     void CacheCompletedReply(const FPendingTurn* Turn, const FAiNpcFinalReply& Reply);
     void PruneCompletedClientRequests(int32 MaxRecords);
     bool TryResolveExistingClientRequest(
-        FGuid ClientRequestId, const FString& InputHash,
+        FGuid ClientRequestId, const FString& NormalizedInput,
         const FDialogueKnowledgeView& View, FGuid& OutRequestId, FString& OutError) const;
     bool IsPendingTurnCurrent(const FPendingTurn& Turn, FString& OutError) const;
     bool CorrelateSemanticRequest(const FString& ReviewRequestId, FGuid DialogueRequestId);

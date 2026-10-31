@@ -33,7 +33,7 @@
 - 输入门：`玩家已授权资料 ∩ 当前语境激活资料`，输出本轮唯一的 `FDialogueKnowledgeView`。
 - 输出门：严格 JSON → 机械事实守卫 → 独立逐 Claim 语义审查 → 本地证据/覆盖检查 → `FinalApprovedText`。
 - 失败关闭：视图过期、语境变化、授权世代变化、证据不足、JSON 非法、Claim 缺失、证据不匹配、评分越界、审查超时或拒绝时，都不得显示模型原文。
-- 幂等：同一 `ClientRequestId + 输入哈希 + 授权 epoch/作用域指纹` 不重复调用 Provider；completed 重复回放缓存回复，输入冲突拒绝。
+- 幂等：同一 `ClientRequestId + 规范化输入 + 授权 epoch/作用域指纹` 不重复调用 Provider；completed 重复回放缓存回复，输入冲突拒绝。
 
 ## 单机与联机边界
 
@@ -49,7 +49,7 @@
   → Build Dialogue Knowledge View
   → 模型返回严格 JSON
   → Guard Knowledge Model Json Response For Collectors
-  → Begin Semantic Review
+  → Create → Correlate → Dispatch Semantic Review
   → ClaimAssessments（证据绑定 + 安全门禁）
   → FinalApprovedText
   → 字幕 / 语音 / 行为 / 正式日志

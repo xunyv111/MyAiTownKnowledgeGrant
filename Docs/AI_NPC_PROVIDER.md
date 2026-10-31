@@ -32,7 +32,7 @@
 
 组件在 `BeginPlay` 调用 `OpenNpcSession`，为每个 NPC 生成独立 SessionId。本地 Transcript 只记录已完成的最终文本，默认最多 24 轮；它不会进入 HTTP 请求。默认情况下 NPC 共享 GameInstance 级 Provider；也可以通过 Persona 的 `ProviderProfileId` 为单个 NPC 选择独立 Provider Profile，复用同一网关但使用不同模型、地址和凭据。
 
-对话请求支持 `ClientRequestId` 幂等：相同 `ClientRequestId + 输入哈希 + AuthorizationEpoch/ScopeFingerprint` 不会重复调用 Provider。pending 重复返回原请求 ID，completed 重复会重放缓存回复；同一 ID 携带不同输入会失败关闭。
+对话请求支持 `ClientRequestId` 幂等：相同 `ClientRequestId + 规范化输入 + AuthorizationEpoch/ScopeFingerprint` 不会重复调用 Provider。pending 重复返回原请求 ID，completed 重复会重放缓存回复；同一 ID 携带不同输入会失败关闭。
 
 ## 实际上传给厂商的数据
 
@@ -63,6 +63,7 @@
 - 审查器证据必须属于源 Claim；缺失评分、覆盖不完整、证据不匹配或任一安全枚举失败都会失败关闭。
 - 语义服务不可用时使用宿主可信策略的 ErrorText，不退回显示原始模型文本。
 - 严格 JSON 失败可做一次受控格式修复；连接失败、429 和临时服务错误可有限重试。
+- 宿主监听 `OnSemanticReviewRequested` 时由宿主发送审查请求；组件检测到监听器后内置 Provider 会让出。没有监听器且 `bUseBuiltInSemanticReviewProvider=false` 时失败关闭。
 
 ## 联机边界
 
