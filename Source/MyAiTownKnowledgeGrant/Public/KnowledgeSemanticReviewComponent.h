@@ -307,4 +307,6 @@ private:
         const FString& RequestId, const FString& Error,
         const UKnowledgeSemanticReviewPolicy* Policy,
         EKnowledgeSemanticReviewOutcome Outcome);
+
+    friend class FKnowledgeSemanticReviewContractTest;
 };

@@ -1,28 +1,34 @@
-# 0.4.6 交付清单
+# 0.4.7 交付清单
 
-交付日期：2026-10-31
-目标引擎：Unreal Engine 5.8.4
-目标平台：Win64  
-状态：AI-NPC ARPG 可集成候选（Beta）
+- 交付日期：2026-11-01
+- 目标引擎：Unreal Engine 5.8.4
+- 目标平台：Win64
+- 状态：单机 AI-NPC 知识授权安全验证版
 
-## 新增能力
+## 本版内容
 
-- 插件原生运行时 BYOK 面板与蓝图打开节点；
-- GameInstance 级 OpenAI-compatible Provider 网关，Key 仅驻进程内存；
-- 每 NPC 自动隔离 Session，本地 Transcript 默认不上传；
-- 玩家明确同意后才发送角色说明、当轮授权事实和当前发言；
-- Dialogue / Semantic Review 双 Provider 通道；
-- 严格 JSON → 机械事实门 → 语义门 → `FinalApprovedText`。
+- 新增安全回归断言：
+  - Policy 丢失时失败关闭为 `semantic_review_policy_unavailable`
+  - Review Provider 重新配置/清除凭据推进 Provider Generation
+  - 单请求取消只影响目标审查
+  - Uncited Roleplay 独立长度/Claim 数量上限
+  - 100 次同 `ClientRequestId` 幂等
+- 单机 Demo HTTP 级幂等验证：100 次同 ID 仅产生 1 次 dialogue + 1 次 review POST。
+- 宿主输出审计：`KnowledgeGroupChatHost` 无 `RawProviderPayload` 正式 UI 接线。
+- 不新增玩法功能。
 
 ## 构建与回归
 
-- UHT `WarningsAsErrors`：通过；
-- UnrealEditor、UnrealGame Development、UnrealGame Shipping：全部通过；
-- 插件 Automation：20/20，0 警告，0 失败；
-- 本轮 UE 5.8 插件 Automation：20/20，0 警告，0 失败；
-- 旧版宿主 Automation 5/5 与网络 PIE 结果只作为 UE 5.7.4 历史集成基线，未计入本轮结果；
-- 静态结构验证：通过。
+- UHT `WarningsAsErrors`：通过
+- UnrealEditor Win64 Development：通过
+- UnrealGame Win64 Development：通过
+- UnrealGame Win64 Shipping：通过
+- 插件 Automation：20/20，0 失败
+- 静态结构验证与发布合同检查：通过
 
 ## 边界
 
-未使用真实付费厂商 Key 发起网络请求，因此未验证具体厂商 SLA、配额、费用、内容政策和协议差异。当前协议为 OpenAI-compatible Chat Completions。玩家 BYOK 适合单机或本地 listen-server；正式专用服务器应使用项目自有服务端凭据。目标游戏仍需完成 Cook/Package、真实厂商沙盒、人工 UI/Play 和隐私合规验收。
+- 本版按单机作品集验收；联机/专用服务器不在范围内。
+- 真实 DeepSeek 并发请求计数未测量；HTTP 级幂等计数来自本地 Mock Provider。
+- 尚未执行目标项目 Cook/Package、人工 Play、规模基准和外部宿主输出审计。
+- 客户端明文资产不提供反拆包保密；需要保密的正文应由服务器或受控后端保存。

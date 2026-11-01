@@ -1,8 +1,8 @@
 ---
 handoff_schema: tavernweave/next/v1
 project_id: ai-npc-knowledge-grant
-status: 0.4.6-release-candidate
-updated: 2026-10-31
+status: 0.4.7-security-validation
+updated: 2026-11-01
 ---
 
 # NEXT · ARPG AI NPC 任务知识授权插件
@@ -10,11 +10,18 @@ updated: 2026-10-31
 ## 当前权威
 
 - 产品边界：仅面向 Unreal Engine 单机/联机 ARPG。
-- 当前版本：`0.4.6`，UE 5.8 / Win64。
+- 当前版本：`0.4.7`，UE 5.8 / Win64。
 - 总设计案：`总设计案.md`
 - 活动蓝图：`蓝图集/BP-04-简易AI小镇演示.md`
 - 执行期持久权威蓝图预算：`0`
 - 冻结概念：知识授权属于“当前玩家 × 当前语境”；NPC Receiver 只保存人格反应，不是第三个授权集合。
+
+## 0.4.7 安全验证
+
+- Policy 丢失、Provider Generation、单请求取消、Uncited Roleplay 上限和 100 次幂等均加入回归断言。
+- 单机 Demo HTTP 级幂等：100 次同 ID 仅 2 次 Mock POST。
+- 宿主输出审计通过；联机/专用服务器不在本版本验收范围。
+- 不新增玩法功能，保持 20/20 Automation。
 
 ## 0.4.6 生命周期与角色扮演边界
 

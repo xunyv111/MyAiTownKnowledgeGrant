@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.7 - 2026-11-01
+
+- 安全验证版本：不新增游戏功能，补充生命周期、Provider Generation、单请求取消、Uncited Roleplay 上限和 100 次幂等的回归断言。
+- 验证 Policy 丢失时 `semantic_review_policy_unavailable` 失败关闭。
+- 验证 Review Provider 重新配置和清除凭据都会推进 Generation。
+- 验证单请求取消只清理目标审查，不误伤共享组件。
+- 单机 Demo 使用 Mock HTTP Provider 验证：同一 `ClientRequestId` 100 次只产生 1 次 dialogue + 1 次 review POST。
+- Automation 保持 20 组。
+
 ## 0.4.6 - 2026-10-31
 
 - 新增 `CancelSemanticReview(RequestId)` 与 `CancelSemanticReviewRequest(RequestId)`：NPC 销毁时只取消自己的审查请求，不误伤共享组件上的其他 NPC。

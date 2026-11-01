@@ -1488,6 +1488,28 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Single-review cancellation removes only its pending review"),
         Coordinator->GetPendingReviewCount(), 0);
 
+    const FKnowledgeSemanticReviewBeginResult NullPolicyBegin = Coordinator->CreateSemanticReview(
+        Player, FreshView, {Collector}, AdviceMechanical, Policy);
+    TestTrue(TEXT("A review for policy-loss testing can be created"), NullPolicyBegin.bOk);
+    Coordinator->PendingPolicyRefs.Remove(NullPolicyBegin.Request.RequestId);
+    if (UKnowledgeSemanticReviewComponent::FPendingReview* Pending =
+        Coordinator->PendingReviews.Find(NullPolicyBegin.Request.RequestId))
+    {
+        Pending->Policy.Reset();
+    }
+    FKnowledgeSemanticReviewResponse NullPolicyResponse;
+    NullPolicyResponse.RequestId = NullPolicyBegin.Request.RequestId;
+    NullPolicyResponse.ReviewerName = TEXT("policy-loss-probe");
+    NullPolicyResponse.ReviewerVersion = TEXT("1");
+    NullPolicyResponse.ClaimAssessments.Add(MakePassingAssessment(
+        NullPolicyBegin.Request.AllowedClaimIds[0], {}));
+    const FKnowledgeSemanticReviewResult NullPolicyResult =
+        Coordinator->CompleteSemanticReview(NullPolicyResponse);
+    TestTrue(TEXT("A lost review policy fails closed"),
+        !NullPolicyResult.bApproved
+        && NullPolicyResult.Outcome == EKnowledgeSemanticReviewOutcome::Error
+        && NullPolicyResult.Error == TEXT("semantic_review_policy_unavailable"));
+
     Coordinator->OnSemanticReviewRequested.RemoveDynamic(
         SyncProbe, &UKnowledgeSemanticReviewSyncProbe::HandleRequest);
     Coordinator->OnSemanticReviewCompleted.RemoveDynamic(
@@ -1953,6 +1975,27 @@ bool FKnowledgeMultiProviderRoutingTest::RunTest(const FString& Parameters)
     TestNotEqual(TEXT("The NPC sessions do not collapse onto one provider profile"),
         RowanRoute->Configuration.ChatCompletionsUrl,
         MiraRoute->Configuration.ChatCompletionsUrl);
+
+    FAiNpcProviderConfiguration ReviewA;
+    ReviewA.ProviderName = TEXT("review-a");
+    ReviewA.ChatCompletionsUrl = TEXT("https://review-a.example.invalid/v1/chat/completions");
+    ReviewA.Model = TEXT("review-a-model");
+    ReviewA.bPlayerConsentedToProviderTransmission = true;
+    TestTrue(TEXT("The review provider can be configured"),
+        Gateway->ConfigureProvider(EAiNpcProviderChannel::SemanticReview,
+            ReviewA, TEXT("review-a-key"), Error));
+    const uint64 ReviewGenerationA = Gateway->ReviewProvider.Generation;
+    ReviewA.Model = TEXT("review-b-model");
+    TestTrue(TEXT("The review provider can be reconfigured"),
+        Gateway->ConfigureProvider(EAiNpcProviderChannel::SemanticReview,
+            ReviewA, TEXT("review-b-key"), Error));
+    TestTrue(TEXT("Reconfiguring the review provider advances its generation"),
+        Gateway->ReviewProvider.Generation > ReviewGenerationA);
+    const uint64 ReviewGenerationB = Gateway->ReviewProvider.Generation;
+    TestTrue(TEXT("Clearing review credentials succeeds"),
+        Gateway->ClearProviderCredentials(EAiNpcProviderChannel::SemanticReview));
+    TestTrue(TEXT("Clearing review credentials advances its generation"),
+        Gateway->ReviewProvider.Generation > ReviewGenerationB);
     return true;
 }
 
