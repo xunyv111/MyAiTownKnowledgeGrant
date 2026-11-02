@@ -309,4 +309,5 @@ private:
         EKnowledgeSemanticReviewOutcome Outcome);
 
     friend class FKnowledgeSemanticReviewContractTest;
+    friend class FKnowledgePersonaCancellationTest;
 };

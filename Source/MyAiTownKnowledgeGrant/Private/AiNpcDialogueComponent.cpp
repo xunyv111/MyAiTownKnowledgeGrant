@@ -82,6 +82,9 @@ void UAiNpcDialogueComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 UAiNpcProviderSubsystem* UAiNpcDialogueComponent::GetProviderSubsystem() const
 {
+#if WITH_DEV_AUTOMATION_TESTS
+    if (TestProviderSubsystem) return TestProviderSubsystem;
+#endif
     const UWorld* World = GetWorld();
     UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
     return GameInstance ? GameInstance->GetSubsystem<UAiNpcProviderSubsystem>() : nullptr;

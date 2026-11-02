@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.9 - 2026-11-02
+
+- 修复 Build ZIP 未包含 `CHANGELOG.md` 导致 `check-release.mjs` 失败的问题：`Config/FilterPlugin.ini` 现在显式打包 `CHANGELOG.md`。
+- 新增 `Runtime.PersonaReviewIsolation`：两个 NPC 共享语义审查组件时，单个 NPC 切换人格只取消自己的 review。
+- Automation 扩展到 21/21。
+- 保持 0.4.8 的单 NPC 隔离修复。
 ## 0.4.8 - 2026-11-02
 
 - 修复单 NPC 人格切换调用 `CancelAllPendingReviews()` 导致共享语义审查组件上其他 NPC 的 pending review 被一并取消的问题。

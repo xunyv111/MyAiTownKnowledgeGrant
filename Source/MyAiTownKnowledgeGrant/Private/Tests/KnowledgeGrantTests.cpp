@@ -1517,6 +1517,57 @@ bool FKnowledgeSemanticReviewContractTest::RunTest(const FString& Parameters)
     return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FKnowledgePersonaCancellationTest,
+    "MyAiTown.KnowledgeGrant.Runtime.PersonaReviewIsolation",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FKnowledgePersonaCancellationTest::RunTest(const FString& Parameters)
+{
+    UGameInstance* GameInstance = NewObject<UGameInstance>();
+    UAiNpcProviderSubsystem* Gateway = NewObject<UAiNpcProviderSubsystem>(GameInstance);
+    AActor* ReviewOwner = NewObject<AActor>();
+    UKnowledgeSemanticReviewComponent* Coordinator =
+        NewObject<UKnowledgeSemanticReviewComponent>(ReviewOwner);
+
+    UAiNpcDialogueComponent* First = NewObject<UAiNpcDialogueComponent>();
+    UAiNpcDialogueComponent* Second = NewObject<UAiNpcDialogueComponent>();
+    First->TestProviderSubsystem = Gateway;
+    Second->TestProviderSubsystem = Gateway;
+    First->SemanticReviewComponent = Coordinator;
+    Second->SemanticReviewComponent = Coordinator;
+
+    const FString FirstReview = TEXT("review.persona.first");
+    const FString SecondReview = TEXT("review.persona.second");
+    UKnowledgeSemanticReviewComponent::FPendingReview FirstPending;
+    FirstPending.Request.RequestId = FirstReview;
+    Coordinator->PendingReviews.Add(FirstReview, FirstPending);
+    UKnowledgeSemanticReviewComponent::FPendingReview SecondPending;
+    SecondPending.Request.RequestId = SecondReview;
+    Coordinator->PendingReviews.Add(SecondReview, SecondPending);
+    First->SemanticToProviderRequest.Add(FirstReview, FGuid::NewGuid());
+    Second->SemanticToProviderRequest.Add(SecondReview, FGuid::NewGuid());
+
+    FAiNpcPersona NewPersona;
+    NewPersona.NpcId = TEXT("npc.persona.first");
+    NewPersona.DisplayName = TEXT("First");
+    NewPersona.RoleInstructions = TEXT("Remain in character.");
+    FString Error;
+    TestTrue(TEXT("Persona replacement succeeds with a test provider"),
+        First->ApplyPersona(NewPersona, false, Error));
+
+    TestEqual(TEXT("Only the replaced NPC review is removed"),
+        Coordinator->GetPendingReviewCount(), 1);
+    TestFalse(TEXT("The replaced NPC review is gone"),
+        Coordinator->PendingReviews.Contains(FirstReview));
+    TestTrue(TEXT("The other NPC review remains pending"),
+        Coordinator->PendingReviews.Contains(SecondReview));
+    TestTrue(TEXT("The other NPC correlation remains intact"),
+        Second->SemanticToProviderRequest.Contains(SecondReview));
+    TestTrue(TEXT("The replaced NPC correlation is cleared"),
+        First->SemanticToProviderRequest.IsEmpty());
+    return true;
+}
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAiNpcProviderContractTest,
     "MyAiTown.KnowledgeGrant.Runtime.AiNpcProviderContract",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

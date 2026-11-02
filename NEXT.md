@@ -1,7 +1,7 @@
 ---
 handoff_schema: tavernweave/next/v1
 project_id: ai-npc-knowledge-grant
-status: 0.4.8-persona-review-isolation
+status: 0.4.9-release-check
 updated: 2026-11-02
 ---
 
@@ -10,11 +10,17 @@ updated: 2026-11-02
 ## 当前权威
 
 - 产品边界：仅面向 Unreal Engine 单机/联机 ARPG。
-- 当前版本：`0.4.8`，UE 5.8 / Win64。
+- 当前版本：`0.4.9`，UE 5.8 / Win64。
 - 总设计案：`总设计案.md`
 - 活动蓝图：`蓝图集/BP-04-简易AI小镇演示.md`
 - 执行期持久权威蓝图预算：`0`
 - 冻结概念：知识授权属于“当前玩家 × 当前语境”；NPC Receiver 只保存人格反应，不是第三个授权集合。
+
+## 0.4.9 发布包自检与双 NPC 回归
+
+- Build ZIP 显式包含 CHANGELOG.md，check-release.mjs 在交付包内可执行。
+- 新增 Runtime.PersonaReviewIsolation 双 NPC 共享审查回归。
+- Automation 21/21。
 
 ## 0.4.8 人格切换隔离修复
 

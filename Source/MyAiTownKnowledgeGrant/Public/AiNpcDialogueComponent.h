@@ -126,6 +126,8 @@ private:
     void StoreApprovedTurn(const FString& PlayerText, const FString& NpcText);
 
 #if WITH_DEV_AUTOMATION_TESTS
+    UAiNpcProviderSubsystem* TestProviderSubsystem = nullptr;
+    friend class FKnowledgePersonaCancellationTest;
     friend class FKnowledgeRequestIdempotencyTest;
     friend class FKnowledgeStaleResponseRejectionTest;
     friend class FKnowledgeSemanticRequestCorrelationTest;
