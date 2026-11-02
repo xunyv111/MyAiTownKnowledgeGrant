@@ -1,21 +1,15 @@
-# 0.4.7 交付清单
+# 0.4.8 交付清单
 
-- 交付日期：2026-11-01
+- 交付日期：2026-11-02
 - 目标引擎：Unreal Engine 5.8.4
 - 目标平台：Win64
-- 状态：单机 AI-NPC 知识授权安全验证版
+- 状态：单机 AI-NPC 知识授权安全修复版
 
 ## 本版内容
 
-- 新增安全回归断言：
-  - Policy 丢失时失败关闭为 `semantic_review_policy_unavailable`
-  - Review Provider 重新配置/清除凭据推进 Provider Generation
-  - 单请求取消只影响目标审查
-  - Uncited Roleplay 独立长度/Claim 数量上限
-  - 100 次同 `ClientRequestId` 幂等
-- 单机 Demo HTTP 级幂等验证：100 次同 ID 仅产生 1 次 dialogue + 1 次 review POST。
-- 宿主输出审计：`KnowledgeGroupChatHost` 无 `RawProviderPayload` 正式 UI 接线。
-- 不新增玩法功能。
+- 修复 `ApplyPersona` 调用 `CancelAllPendingReviews()` 导致共享语义审查组件上其他 NPC 的 pending review 被误取消的问题。
+- `ApplyPersona` 现在只取消本 NPC 的 ReviewId，并取消对应 Provider HTTP 请求。
+- 保留 0.4.7 的安全回归断言和 0.4.6 的单请求取消 API。
 
 ## 构建与回归
 
@@ -24,7 +18,6 @@
 - UnrealGame Win64 Development：通过
 - UnrealGame Win64 Shipping：通过
 - 插件 Automation：20/20，0 失败
-- 静态结构验证与发布合同检查：通过
 
 ## 边界
 

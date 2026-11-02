@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.8 - 2026-11-02
+
+- 修复单 NPC 人格切换调用 `CancelAllPendingReviews()` 导致共享语义审查组件上其他 NPC 的 pending review 被一并取消的问题。
+- `ApplyPersona` 现在只取消本 NPC 的 ReviewId，并同时取消对应的 Provider HTTP 请求。
+- 保持 20/20 Automation；新增修复说明与回归边界。
+
+
 ## 0.4.7 - 2026-11-01
 
 - 安全验证版本：不新增游戏功能，补充生命周期、Provider Generation、单请求取消、Uncited Roleplay 上限和 100 次幂等的回归断言。

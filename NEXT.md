@@ -1,8 +1,8 @@
 ---
 handoff_schema: tavernweave/next/v1
 project_id: ai-npc-knowledge-grant
-status: 0.4.7-security-validation
-updated: 2026-11-01
+status: 0.4.8-persona-review-isolation
+updated: 2026-11-02
 ---
 
 # NEXT · ARPG AI NPC 任务知识授权插件
@@ -10,11 +10,17 @@ updated: 2026-11-01
 ## 当前权威
 
 - 产品边界：仅面向 Unreal Engine 单机/联机 ARPG。
-- 当前版本：`0.4.7`，UE 5.8 / Win64。
+- 当前版本：`0.4.8`，UE 5.8 / Win64。
 - 总设计案：`总设计案.md`
 - 活动蓝图：`蓝图集/BP-04-简易AI小镇演示.md`
 - 执行期持久权威蓝图预算：`0`
 - 冻结概念：知识授权属于“当前玩家 × 当前语境”；NPC Receiver 只保存人格反应，不是第三个授权集合。
+
+## 0.4.8 人格切换隔离修复
+
+- 修复 ApplyPersona 调用全局审查取消、误伤共享组件上其他 NPC 的问题。
+- 只取消本 NPC 的 ReviewId 和对应 Provider 请求。
+- 保持 20/20 Automation。
 
 ## 0.4.7 安全验证
 

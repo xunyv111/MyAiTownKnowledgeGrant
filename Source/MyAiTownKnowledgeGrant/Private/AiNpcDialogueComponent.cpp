@@ -223,6 +223,11 @@ bool UAiNpcDialogueComponent::ApplyPersona(
         return false;
     }
 
+    TArray<FString> ReviewIds;
+    ReviewIds.Reserve(SemanticToProviderRequest.Num());
+    for (const TPair<FString, FGuid>& Pair : SemanticToProviderRequest)
+        ReviewIds.Add(Pair.Key);
+
     const FGuid OldSessionId = SessionId;
     SessionId = NewSessionId;
     Persona = NewPersona;
@@ -230,7 +235,15 @@ bool UAiNpcDialogueComponent::ApplyPersona(
     PendingTurns.Reset();
     ClientRequests.Reset();
     SemanticToProviderRequest.Reset();
-    if (SemanticReviewComponent) SemanticReviewComponent->CancelAllPendingReviews();
+    // The semantic-review component can be shared by multiple NPCs. Cancel only reviews
+    // owned by this NPC; CancelAllPendingReviews would cancel the other NPCs' pending turns.
+    if (SemanticReviewComponent)
+    {
+        for (const FString& ReviewId : ReviewIds)
+            SemanticReviewComponent->CancelSemanticReview(ReviewId);
+    }
+    for (const FString& ReviewId : ReviewIds)
+        Provider->CancelSemanticReviewRequest(ReviewId);
     if (OldSessionId.IsValid()) Provider->CloseNpcSession(OldSessionId);
     if (bClearTranscript) LocalTranscript.Reset();
     return true;
